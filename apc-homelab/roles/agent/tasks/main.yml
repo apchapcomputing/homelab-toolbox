@@ -1,34 +1,4 @@
 ---
-# Node 22+ is required by the Obsidian headless client.
-- name: Enable the Node 22 module stream (RHEL and CentOS 9)
-  ansible.builtin.command: dnf module enable -y nodejs:22
-  when:
-    - ansible_distribution in ['RedHat', 'CentOS']
-    - ansible_distribution_major_version == '9'
-  changed_when: false
-
-- name: Install Node and npm
-  ansible.builtin.dnf:
-    name:
-      - nodejs
-      - npm
-    state: present
-
-- name: Read the Node version
-  ansible.builtin.command: node --version
-  register: node_version
-  changed_when: false
-
-- name: Stop if Node is older than 22
-  ansible.builtin.assert:
-    that: (node_version.stdout | regex_replace('^v(\d+)\..*$', '\1') | int) >= 22
-    fail_msg: "Obsidian Headless needs Node 22 or later, found {{ node_version.stdout }}."
-
-- name: Install the Obsidian headless client
-  ansible.builtin.command: npm install -g --prefix /usr/local obsidian-headless
-  args:
-    creates: /usr/local/bin/ob
-
 # Claude Code installs per user, so the agent gets its own copy and its own login.
 - name: Agent cache directory
   ansible.builtin.file:
@@ -70,25 +40,6 @@
     group: root
     mode: "0644"
 
-# The vault sits outside both home directories. The agent owns it. The admin user reads
-# it through the group, so the weekly git push works without the agent holding the
-# GitHub key. Setgid keeps new files in that group.
-- name: Vault root
-  ansible.builtin.file:
-    path: "{{ vault_root }}"
-    state: directory
-    owner: "{{ agent_user }}"
-    group: "{{ vault_read_group }}"
-    mode: "2750"
-
-- name: Shortcut to the vault in the admin user's home
-  ansible.builtin.file:
-    src: "{{ vault_root }}"
-    dest: "/home/{{ admin_user }}/vaults"
-    state: link
-    owner: "{{ admin_user }}"
-    group: "{{ admin_user }}"
-
 - name: Forced-command script that n8n's SSH key may run
   ansible.builtin.template:
     src: brain-run.sh.j2
@@ -116,15 +67,6 @@
     mode: "0644"
   when: n8n_ssh_pubkey | length > 0
 
-- name: Obsidian Sync service
-  ansible.builtin.template:
-    src: ob-sync.service.j2
-    dest: /etc/systemd/system/ob-sync.service
-    owner: root
-    group: root
-    mode: "0644"
-  register: ob_unit
-
 - name: Daily local snapshot script
   ansible.builtin.template:
     src: vault-snapshot.sh.j2
@@ -148,19 +90,12 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
-  when: ob_unit is changed or snapshot_units is changed
+  when: snapshot_units is changed
 
 - name: Is the vault a git repo yet?
   ansible.builtin.stat:
     path: "{{ vault_root }}/.git"
   register: vault_git
-
-- name: Start Obsidian Sync (after ob login and sync-setup)
-  ansible.builtin.systemd:
-    name: ob-sync.service
-    enabled: true
-    state: started
-  when: start_ob_sync
 
 - name: Enable the daily snapshot timer (needs the git repo)
   ansible.builtin.systemd:

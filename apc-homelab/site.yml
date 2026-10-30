@@ -17,10 +17,12 @@
     - role: pipeline
       tags: [pipeline]
 
-- name: Agent (Obsidian Sync, Claude Code, vault) and weekly backup
+- name: Obsidian sync, agent (Claude Code), and weekly backup
   hosts: homelab
   become: true
   roles:
+    - role: obsidian
+      tags: [obsidian]
     - role: agent
       tags: [agent]
     - role: backup

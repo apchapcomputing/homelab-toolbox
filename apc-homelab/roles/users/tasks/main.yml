@@ -8,18 +8,7 @@
     password_lock: true
   loop:
     - { name: "{{ pipeline_user }}", comment: "n8n, Postgres, Whisper (rootless Podman)" }
-    - { name: "{{ agent_user }}", comment: "Claude Code and Obsidian Sync" }
-
-- name: Group that may read the vault
-  ansible.builtin.group:
-    name: "{{ vault_read_group }}"
-    state: present
-
-- name: Let the admin user read the vault
-  ansible.builtin.user:
-    name: "{{ admin_user }}"
-    groups: "{{ vault_read_group }}"
-    append: true
+    - { name: "{{ agent_user }}", comment: "Claude Code" }
 
 - name: Check rootless Podman has subordinate IDs for the pipeline user
   ansible.builtin.command: grep -q "^{{ pipeline_user }}:" {{ item }}

@@ -12,7 +12,8 @@ your PC (Ansible)  --ssh-->  rhel10-dell
                               ├─ users      pipeline and agent (no sudo, locked passwords)
                               ├─ tailscale  repo, install, tailscale0 in the trusted zone
                               ├─ pipeline   rootless Podman + Quadlet: n8n, Postgres, Whisper in one pod
-                              ├─ agent      Obsidian headless sync, Claude Code, forced-command SSH key, daily snapshot
+                              ├─ obsidian   Node, the ob client, the obsidian group, one sync service per vault
+                              ├─ agent      Claude Code, forced-command SSH key, daily snapshot
                               └─ backup     weekly fast-forward push to GitHub, run as the admin user
 ```
 
@@ -20,9 +21,9 @@ your PC (Ansible)  --ssh-->  rhel10-dell
 
 | User | Does | Cannot |
 |---|---|---|
-| `apc` (admin) | SSH in, sudo, holds the GitHub deploy key, pushes weekly | |
+| `apc` (admin) | SSH in, sudo, runs Obsidian Sync, holds the GitHub deploy key, pushes weekly | |
 | `pipeline` | runs n8n, Postgres, Whisper; holds their secrets | sudo, SSH login, touch the vault |
-| `agent` | Obsidian Sync, Claude Code, owns the vault | sudo, see n8n secrets, see the GitHub key, use a shell or web |
+| `agent` | Claude Code, writes notes into the `make` vault through the `obsidian` group, daily snapshot | sudo, see n8n secrets, see the GitHub key, see the `live` vault, use a shell or web |
 
 n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/inputs`. `brain-run` moves them into the vault and runs Claude Code in `--restricted` mode with file tools only.
 
@@ -83,16 +84,8 @@ podman exec whisper curl -X POST http://localhost:8000/v1/models/Systran/faster-
 ```
 Check the speaches docs for the current image tag and model route. They change.
 
-**Obsidian Sync (as the agent user)**
-```bash
-sudo machinectl shell agent@
-ob login
-ob sync-setup --vault "Make" --path /srv/vaults/Make --device-name rhel10-dell
-ob sync-config --path /srv/vaults/Make --configs ""
-ob sync --path /srv/vaults/Make
-exit
-```
-Set `start_ob_sync: true` and re-run `--tags agent`.
+**Obsidian Sync (as the admin user)**
+`ob` runs as `apc` and syncs `/srv/vaults/make` and `/srv/vaults/live`. The commands, checks, and fixes for a hand-made setup are in [docs/obsidian-sync.md](docs/obsidian-sync.md). Once `ob login` and `ob sync-setup` are done for each vault, set `start_ob_sync: true` and re-run `--tags obsidian`.
 
 **Claude Code login (as the agent user)**
 ```bash
@@ -105,7 +98,7 @@ The agent commits locally and never holds the GitHub key. To seed the history fr
 ```bash
 git clone --no-checkout git@github.com:youruser/your-vault.git /tmp/vault-seed
 sudo mv /tmp/vault-seed/.git /srv/vaults/.git
-sudo chown -R agent:vault-readers /srv/vaults/.git
+sudo chown -R apc:obsidian /srv/vaults/.git
 sudo -u agent git -C /srv/vaults reset -q   # --no-checkout leaves no index
 sudo -u agent git -C /srv/vaults status --short | head
 ```
@@ -125,7 +118,8 @@ In n8n, add an SSH credential: host `host.containers.internal`, user `agent`, au
 
 ## Known gaps
 
-- The admin user's access to `/srv/vaults` is read-only by design. Edit notes in Obsidian on your devices. The group takes effect at the next login.
+- Obsidian Sync runs as the admin user, so a bug in `ob` runs next to the GitHub deploy key. Protect that key with a passphrase.
+- Group membership applies at the next login.
 - Weekly review and the Todoist connection are not built. They need the Todoist MCP server added for the agent and a timer.
 - `dnf-automatic` is skipped on Fedora, which uses a different package. Use `dnf5-plugin-automatic` there.
 - Whisper runs on CPU. A GPU box (gaming laptop) is a later swap.

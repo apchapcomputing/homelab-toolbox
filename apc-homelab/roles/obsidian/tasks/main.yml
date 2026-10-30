@@ -1,0 +1,151 @@
+---
+# Obsidian Headless (ob) keeps the vaults under {{ vault_root }} in sync with Obsidian Sync.
+# It runs as obsidian_sync_user, so its login is stored in that account's home. The agent
+# reaches the vault through the obsidian group and never holds the login.
+
+# Node 22+ is required by the Obsidian headless client.
+- name: Enable the Node 22 module stream (RHEL and CentOS 9)
+  ansible.builtin.command: dnf module enable -y nodejs:22
+  when:
+    - ansible_distribution in ['RedHat', 'CentOS']
+    - ansible_distribution_major_version == '9'
+  changed_when: false
+
+- name: Install Node and npm
+  ansible.builtin.dnf:
+    name:
+      - nodejs
+      - npm
+    state: present
+
+- name: Read the Node version
+  ansible.builtin.command: node --version
+  register: node_version
+  changed_when: false
+
+- name: Stop if Node is older than 22
+  ansible.builtin.assert:
+    that: (node_version.stdout | regex_replace('^v(\d+)\..*$', '\1') | int) >= 22
+    fail_msg: "Obsidian Headless needs Node 22 or later, found {{ node_version.stdout }}."
+
+- name: Install the Obsidian headless client
+  ansible.builtin.command: npm install -g --prefix /usr/local obsidian-headless
+  args:
+    creates: /usr/local/bin/ob
+
+- name: Group shared by the sync user and the agent
+  ansible.builtin.group:
+    name: "{{ obsidian_group }}"
+    state: present
+
+- name: Put the sync user and the agent in that group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: "{{ obsidian_group }}"
+    append: true
+  loop:
+    - "{{ obsidian_sync_user }}"
+    - "{{ agent_user }}"
+
+# Setgid on every directory keeps new files in the obsidian group.
+- name: Vault root
+  ansible.builtin.file:
+    path: "{{ vault_root }}"
+    state: directory
+    owner: "{{ obsidian_sync_user }}"
+    group: "{{ obsidian_group }}"
+    mode: "2755"
+
+- name: Shortcut to the vaults in the admin user's home
+  ansible.builtin.file:
+    src: "{{ vault_root }}"
+    dest: "/home/{{ admin_user }}/vaults"
+    state: link
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+
+# A vault with agent_access: false is closed to the group, so the agent cannot read it.
+- name: One directory per vault
+  ansible.builtin.file:
+    path: "{{ vault_root }}/{{ item.name }}"
+    state: directory
+    owner: "{{ obsidian_sync_user }}"
+    group: "{{ obsidian_group }}"
+    mode: "{{ '2775' if item.agent_access else '2700' }}"
+  loop: "{{ obsidian_vaults }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Is the vault root a git repo yet?
+  ansible.builtin.stat:
+    path: "{{ vault_root }}/.git"
+  register: obs_git
+
+# The agent commits snapshots into this repo, so the group needs to write to it.
+- name: Git directory is group-writable
+  ansible.builtin.file:
+    path: "{{ vault_root }}/.git"
+    state: directory
+    owner: "{{ obsidian_sync_user }}"
+    group: "{{ obsidian_group }}"
+    mode: "2775"
+  when: obs_git.stat.exists
+
+- name: Git files belong to the sync user and the group (a root-run git command breaks this)
+  ansible.builtin.file:
+    path: "{{ vault_root }}/.git"
+    state: directory
+    owner: "{{ obsidian_sync_user }}"
+    group: "{{ obsidian_group }}"
+    recurse: true
+  when: obs_git.stat.exists
+
+- name: Read git's shared-repository setting
+  ansible.builtin.command: git -C {{ vault_root }} config --get core.sharedRepository
+  become_user: "{{ obsidian_sync_user }}"
+  register: obs_shared
+  changed_when: false
+  failed_when: obs_shared.rc not in [0, 1]
+  when: obs_git.stat.exists
+
+- name: New git files are group-writable
+  ansible.builtin.command: git -C {{ vault_root }} config core.sharedRepository group
+  become_user: "{{ obsidian_sync_user }}"
+  when: obs_git.stat.exists and obs_shared.stdout != 'group'
+
+- name: One sync service per vault
+  ansible.builtin.template:
+    src: obsidian-sync.service.j2
+    dest: "/etc/systemd/system/obsidian-sync-{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ obsidian_vaults }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: sync_units
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: sync_units is changed
+
+# Needs `ob login` and `ob sync-setup` for each vault first. See docs/obsidian-sync.md.
+- name: Start the sync services
+  ansible.builtin.systemd:
+    name: "obsidian-sync-{{ item.name }}.service"
+    enabled: true
+    state: started
+  loop: "{{ obsidian_vaults }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: start_ob_sync
+
+- name: Restart the sync services whose unit changed
+  ansible.builtin.systemd:
+    name: "obsidian-sync-{{ item.item.name }}.service"
+    state: restarted
+  loop: "{{ sync_units.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: start_ob_sync and item is changed
