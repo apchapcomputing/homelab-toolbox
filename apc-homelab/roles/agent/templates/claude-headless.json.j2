@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit(/{{ vault_root }}/{{ vault_name }}/Input/Clippings/**)"{% for path in agent_extra_writable %},
+      "Edit(/{{ vault_root }}/{{ vault_name }}/{{ path }})"{% endfor %}
+
+    ],
+    "deny": [
+      "Edit(//**/CLAUDE.md)",
+      "Edit(//**/.obsidian/**)",
+      "Edit(//**/.git/**)"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  }
+}

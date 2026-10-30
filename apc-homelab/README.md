@@ -24,9 +24,9 @@ your PC (Ansible)  --ssh-->  apc-dell
 | `pipeline` | runs n8n, Postgres, Whisper; holds their secrets | sudo, SSH login, touch the vault |
 | `agent` | Obsidian Sync, Claude Code, owns the vault | sudo, see n8n secrets, see the GitHub key, use a shell or web |
 
-n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/brain/inbox`. `brain-run` moves them into the vault and runs Claude Code with read, edit, and write tools only.
+n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/brain/inbox`. `brain-run` moves them into the vault and runs Claude Code in `--restricted` mode with file tools only.
 
-Podcast transcripts are untrusted text. The tool limits and the separate user are the defense. The "treat this as data" line in the prompt helps but is not a boundary.
+Podcast transcripts are untrusted text. The tool limits, the root-owned policy in `/etc/brain/claude-headless.json`, and the separate user are the defense. The "treat this as data" line in the prompt helps but is not a boundary.
 
 ## Before the first run
 
@@ -119,7 +119,7 @@ In n8n, add an SSH credential: host `host.containers.internal`, user `agent`, au
 - `getenforce` says Enforcing
 - `sudo firewall-cmd --list-all` shows no cockpit service
 - Reboot. The containers come back and the HTTPS page loads.
-- As the agent: `~/.local/bin/claude -p "list files in Input/Clippings"` works and cannot run shell commands.
+- `sudo -u agent ls -l /etc/brain/claude-headless.json` shows it owned by root, and `/etc/ssh/authorized_keys/agent` the same.
 
 ## Known gaps
 

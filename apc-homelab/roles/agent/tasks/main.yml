@@ -52,21 +52,23 @@
   args:
     creates: "{{ claude_bin }}"
 
-- name: Claude Code settings directory
+# Root-owned on purpose. The agent can edit anything in its own home, so a policy
+# kept in ~/.claude could be rewritten by the run it is meant to limit.
+- name: Directory for the headless Claude policy
   ansible.builtin.file:
-    path: "/home/{{ agent_user }}/.claude"
+    path: "{{ claude_headless_settings | dirname }}"
     state: directory
-    owner: "{{ agent_user }}"
-    group: "{{ agent_user }}"
-    mode: "0700"
+    owner: root
+    group: root
+    mode: "0755"
 
-- name: Claude Code permissions (read, edit, write only)
+- name: Claude Code policy for pipeline runs (scoped edits, no shell, no web)
   ansible.builtin.template:
-    src: claude-settings.json.j2
-    dest: "/home/{{ agent_user }}/.claude/settings.json"
-    owner: "{{ agent_user }}"
-    group: "{{ agent_user }}"
-    mode: "0600"
+    src: claude-headless.json.j2
+    dest: "{{ claude_headless_settings }}"
+    owner: root
+    group: root
+    mode: "0644"
 
 # The vault lives in the agent's home. The admin user gets read access so the weekly
 # git push can run without the agent ever holding the GitHub key.
@@ -112,12 +114,23 @@
     group: root
     mode: "0755"
 
+# Outside the agent's home, so nothing running as the agent can add a key.
+# sshd_hardening.conf points the agent user at this file.
+- name: Directory for root-owned authorized_keys
+  ansible.builtin.file:
+    path: /etc/ssh/authorized_keys
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Authorize n8n's key for the agent user, locked to that one script
-  ansible.posix.authorized_key:
-    user: "{{ agent_user }}"
-    key: "{{ n8n_ssh_pubkey }}"
-    key_options: 'command="/usr/local/bin/brain-run",restrict'
-    comment: n8n
+  ansible.builtin.copy:
+    content: 'command="/usr/local/bin/brain-run",restrict {{ n8n_ssh_pubkey }} n8n{{ "\n" }}'
+    dest: "/etc/ssh/authorized_keys/{{ agent_user }}"
+    owner: root
+    group: root
+    mode: "0644"
   when: n8n_ssh_pubkey | length > 0
 
 - name: Obsidian Sync service
