@@ -1,13 +1,13 @@
 # apc-homelab
 
-Ansible and Quadlet config for `apc-dell`: a RHEL-family laptop server that turns podcast links into processed Obsidian notes.
+Ansible and Quadlet config for `rhel10-dell`: a RHEL-family laptop server that turns podcast links into processed Obsidian notes.
 
 **Status: first draft, not yet run on a real machine.** It passes YAML and Ansible syntax checks only. Expect to fix details on the first run, especially the Quadlet files, the Tailscale repo path, and file ownership around the inbox. Do the first run with `--check` and read the output.
 
 ## What it builds
 
 ```
-your PC (Ansible)  --ssh-->  apc-dell
+your PC (Ansible)  --ssh-->  rhel10-dell
                               ├─ base       packages, SELinux enforcing, firewalld, SSH hardening, Cockpit, security updates
                               ├─ users      pipeline and agent (no sudo, locked passwords)
                               ├─ tailscale  repo, install, tailscale0 in the trusted zone
@@ -34,8 +34,9 @@ Podcast transcripts are untrusted text. The tool limits, the root-owned policy i
 2. From your PC: `ssh-copy-id apc@<laptop-lan-ip>`, then confirm key login works.
 3. On your PC: `ansible-galaxy collection install -r requirements.yml`
 4. `cp inventory.example.ini inventory.ini` and put the LAN IP in it.
-5. Edit `group_vars/all.yml`. Pin `n8n_version` to a real tag from the n8n releases page.
-6. Make the n8n key pair on your PC (never commit it):
+5. Edit `group_vars/all.yml`. Bump the pinned image tags if they are out of date.
+6. In the BIOS, set the battery to Primarily AC Use or a custom charge limit. A laptop left plugged in all the time can swell its battery.
+7. Make the n8n key pair on your PC (never commit it):
    `ssh-keygen -t ed25519 -f n8n_to_agent -N ""`
    Paste the contents of `n8n_to_agent.pub` into `n8n_ssh_pubkey`.
 
@@ -52,7 +53,7 @@ Run a single role with `--tags base`, `--tags pipeline`, and so on.
 
 **Tailscale**
 ```bash
-sudo tailscale up --hostname=apc-dell
+sudo tailscale up --hostname=rhel10-dell
 ```
 Then in the admin console, turn on MagicDNS and HTTPS certificates. Switch `inventory.ini` to the tailnet name.
 
@@ -73,7 +74,7 @@ Set `start_pipeline: true` in `group_vars/all.yml` and re-run `--tags pipeline`.
 ```bash
 sudo tailscale serve --bg 5678
 ```
-Open `https://apc-dell.your-tailnet.ts.net`, create the owner account, and turn on 2FA.
+Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, and turn on 2FA.
 
 **Load the Whisper model (once)**
 ```bash
@@ -86,7 +87,7 @@ Check the speaches docs for the current image tag and model route. They change.
 ```bash
 sudo machinectl shell agent@
 ob login
-ob sync-setup --vault "Make" --path /home/agent/vaults/Make --device-name apc-dell
+ob sync-setup --vault "Make" --path /home/agent/vaults/Make --device-name rhel10-dell
 ob sync-config --path /home/agent/vaults/Make --configs ""
 ob sync --path /home/agent/vaults/Make
 exit
@@ -105,6 +106,7 @@ The agent commits locally and never holds the GitHub key. To seed the history fr
 git clone --no-checkout git@github.com:youruser/your-vault.git /tmp/vault-seed
 sudo mv /tmp/vault-seed/.git /home/agent/vaults/.git
 sudo chown -R agent:agent /home/agent/vaults/.git
+sudo -u agent git -C /home/agent/vaults reset -q   # --no-checkout leaves no index
 sudo -u agent git -C /home/agent/vaults status --short | head
 ```
 Check that status shows only what you expect, then re-run `--tags agent,backup`. Copy your GitHub deploy key to `~/.ssh/vaults_deploy` on the admin account first so the push timer enables.

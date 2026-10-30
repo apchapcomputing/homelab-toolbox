@@ -38,7 +38,9 @@
     state: directory
     owner: "{{ pipeline_user }}"
     group: "{{ pipeline_user }}"
-    mode: "0750"
+    # Not 0750: on a directory with ACLs, the group bits are the ACL mask. 0750 would
+    # cap the agent at r-x on every re-run and break the move out of the inbox.
+    mode: "0770"
 
 - name: Let the agent user read and remove inbox files
   ansible.posix.acl:

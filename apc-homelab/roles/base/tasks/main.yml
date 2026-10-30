@@ -66,13 +66,31 @@
     owner: root
     group: root
     mode: "0644"
-  register: sshd_dropin
-
-- name: Check the SSH config parses before restarting sshd
-  ansible.builtin.command: sshd -t
-  changed_when: false
-  when: sshd_dropin is changed
+    validate: /usr/sbin/sshd -t -f %s
   notify: Restart sshd
+
+# It is a laptop. Closing the lid must not suspend the server.
+- name: Logind drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ignore the lid switch
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (apc-homelab).
+      [Login]
+      HandleLidSwitch=ignore
+      HandleLidSwitchExternalPower=ignore
+      HandleLidSwitchDocked=ignore
+    dest: /etc/systemd/logind.conf.d/10-server-lid.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart logind
 
 - name: Install dnf-automatic (security updates only)
   ansible.builtin.dnf:
@@ -85,9 +103,11 @@
     path: /etc/dnf/automatic.conf
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
+    insertafter: '^\[commands\]'
   loop:
     - { regexp: '^\s*upgrade_type\s*=', line: 'upgrade_type = security' }
     - { regexp: '^\s*apply_updates\s*=', line: 'apply_updates = yes' }
+    - { regexp: '^\s*reboot\s*=', line: 'reboot = when-needed' }
   when: ansible_distribution != 'Fedora'
 
 - name: Enable the dnf-automatic timer

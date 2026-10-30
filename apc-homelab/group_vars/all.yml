@@ -5,8 +5,8 @@
 admin_user: apc
 pipeline_user: pipeline   # runs rootless Podman: n8n, Postgres, Whisper
 agent_user: agent         # runs Claude Code and Obsidian Sync, owns the vault
-host_short: apc-dell
-ts_fqdn: apc-dell.your-tailnet.ts.net
+host_short: rhel10-dell
+ts_fqdn: rhel10-dell.your-tailnet.ts.net
 timezone: America/New_York
 
 # Run state. Flip these to true as the manual steps in the README get done.
@@ -14,9 +14,9 @@ start_pipeline: false     # after the Podman secrets exist
 start_ob_sync: false      # after `ob login` and `ob sync-setup` as the agent user
 
 # Containers. Pin real tags before the first start.
-n8n_version: "PIN_ME"
-postgres_image: docker.io/library/postgres:16
-whisper_image: ghcr.io/speaches-ai/speaches:latest-cpu
+n8n_version: "2.43.5"
+postgres_image: docker.io/library/postgres:17.10
+whisper_image: ghcr.io/speaches-ai/speaches:0.8.3-cpu
 
 # Vault
 vault_root: /home/agent/vaults

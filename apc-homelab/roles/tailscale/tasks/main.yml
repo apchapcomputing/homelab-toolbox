@@ -30,6 +30,7 @@
     zone: trusted
     interface: tailscale0
     permanent: true
+    immediate: true
     state: enabled
 
 - name: Remind about the manual login
