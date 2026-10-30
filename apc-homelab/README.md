@@ -34,8 +34,9 @@ Podcast transcripts are untrusted text. The tool limits and the separate user ar
 2. From your PC: `ssh-copy-id apc@<laptop-lan-ip>`, then confirm key login works.
 3. On your PC: `ansible-galaxy collection install -r requirements.yml`
 4. `cp inventory.example.ini inventory.ini` and put the LAN IP in it.
-5. Edit `group_vars/all.yml`. Pin `n8n_version` to a real tag from the n8n releases page.
-6. Make the n8n key pair on your PC (never commit it):
+5. Edit `group_vars/all.yml`. Bump the pinned image tags if they are out of date.
+6. In the BIOS, set the battery to Primarily AC Use or a custom charge limit. A laptop left plugged in all the time can swell its battery.
+7. Make the n8n key pair on your PC (never commit it):
    `ssh-keygen -t ed25519 -f n8n_to_agent -N ""`
    Paste the contents of `n8n_to_agent.pub` into `n8n_ssh_pubkey`.
 
@@ -105,6 +106,7 @@ The agent commits locally and never holds the GitHub key. To seed the history fr
 git clone --no-checkout git@github.com:youruser/your-vault.git /tmp/vault-seed
 sudo mv /tmp/vault-seed/.git /home/agent/vaults/.git
 sudo chown -R agent:agent /home/agent/vaults/.git
+sudo -u agent git -C /home/agent/vaults reset -q   # --no-checkout leaves no index
 sudo -u agent git -C /home/agent/vaults status --short | head
 ```
 Check that status shows only what you expect, then re-run `--tags agent,backup`. Copy your GitHub deploy key to `~/.ssh/vaults_deploy` on the admin account first so the push timer enables.
