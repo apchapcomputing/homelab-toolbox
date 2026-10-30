@@ -1,0 +1,26 @@
+# Managed by Ansible (apc-homelab).
+# n8n calls http://127.0.0.1:8080/fetch (same pod). Not published to the host.
+[Unit]
+Description=Fetcher (yt-dlp, calls Whisper, returns a raw clipping note)
+Requires=whisper.service
+After=whisper.service
+
+[Container]
+ContainerName=fetcher
+Image=fetcher.build
+Pod=brain.pod
+Environment=TZ={{ timezone }}
+Environment=WHISPER_URL=http://127.0.0.1:8000
+Environment=WHISPER_MODEL={{ whisper_model }}
+ReadOnly=true
+Tmpfs=/tmp:size=1g
+DropCapability=ALL
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+# The first start builds the image.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

@@ -11,7 +11,7 @@ your PC (Ansible)  --ssh-->  rhel10-dell
                               ├─ base       packages, SELinux enforcing, firewalld, SSH hardening, Cockpit, security updates
                               ├─ users      pipeline and agent (no sudo, locked passwords)
                               ├─ tailscale  repo, install, tailscale0 in the trusted zone
-                              ├─ pipeline   rootless Podman + Quadlet: n8n, Postgres, Whisper in one pod
+                              ├─ pipeline   rootless Podman + Quadlet: n8n, Postgres, Whisper, fetcher in one pod
                               ├─ obsidian   Node, the ob client, the obsidian group, one sync service per vault
                               ├─ agent      Claude Code, forced-command SSH key, daily snapshot
                               └─ backup     weekly fast-forward push to GitHub, run as the admin user
@@ -107,10 +107,15 @@ Check that status shows only what you expect, then re-run `--tags agent,backup`.
 **Wire n8n to the agent**
 In n8n, add an SSH credential: host `host.containers.internal`, user `agent`, authentication by private key (the contents of `n8n_to_agent`), then an SSH node running the command `process`. Slugify note titles before writing them to `/inbox`: only letters, digits, spaces, dots, dashes, underscores, and parentheses are accepted.
 
+## The fetcher
+
+A fourth container in the pod turns a URL into a raw clipping note (captions, or yt-dlp and Whisper). n8n only calls it. See [docs/fetcher.md](docs/fetcher.md).
+
 ## Checks after a run
 
 - `systemctl --user -M pipeline@ status postgres n8n whisper` (or use `machinectl shell`)
 - `curl -s http://127.0.0.1:5678/healthz` returns ok
+- As the pipeline user: `podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen('http://127.0.0.1:8080/healthz').read())"` prints `{"ok": true}`
 - `getenforce` says Enforcing
 - `sudo firewall-cmd --list-all` shows no cockpit service
 - Reboot. The containers come back and the HTTPS page loads.

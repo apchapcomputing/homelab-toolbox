@@ -1,0 +1,6 @@
+# Managed by Ansible (apc-homelab).
+# The tag changes whenever fetcher.py or the yt-dlp version does, so a change rebuilds the image.
+[Build]
+ImageTag=localhost/brain-fetcher:{{ ((ytdlp_version ~ lookup('ansible.builtin.file', 'fetcher/fetcher.py')) | hash('sha1'))[:10] }}
+File=/home/{{ pipeline_user }}/.config/containers/fetcher/Containerfile
+SetWorkingDirectory=/home/{{ pipeline_user }}/.config/containers/fetcher

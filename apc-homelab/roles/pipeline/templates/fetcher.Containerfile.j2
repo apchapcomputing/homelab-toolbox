@@ -1,0 +1,14 @@
+# Managed by Ansible (apc-homelab). Built on the server by fetcher.build.
+FROM docker.io/library/python:3.12-slim-trixie
+
+# yt-dlp needs a JavaScript runtime to read YouTube; yt-dlp[default] brings its helper scripts.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nodejs ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir "yt-dlp[default]=={{ ytdlp_version }}"
+
+COPY fetcher.py /app/fetcher.py
+
+USER 10001:10001
+ENV HOME=/tmp XDG_CACHE_HOME=/tmp PYTHONUNBUFFERED=1
+CMD ["python3", "-I", "/app/fetcher.py"]

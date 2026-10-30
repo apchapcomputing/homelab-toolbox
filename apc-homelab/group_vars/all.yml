@@ -17,6 +17,10 @@ start_ob_sync: false      # after `ob login` and `ob sync-setup` as the admin us
 n8n_version: "2.43.5"
 postgres_image: docker.io/library/postgres:17.10
 whisper_image: ghcr.io/speaches-ai/speaches:0.8.3-cpu
+whisper_model: Systran/faster-whisper-small
+# The fetcher image is built on the server. Bump ytdlp_version when YouTube breaks it;
+# the image tag follows the version and the fetcher code, so a change rebuilds it.
+ytdlp_version: "2026.08.19"
 
 # Vault
 vault_root: /srv/vaults   # one git repo; each vault is a folder inside it
