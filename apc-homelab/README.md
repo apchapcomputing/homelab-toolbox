@@ -1,13 +1,13 @@
 # apc-homelab
 
-Ansible and Quadlet config for `apc-dell`: a RHEL-family laptop server that turns podcast links into processed Obsidian notes.
+Ansible and Quadlet config for `rhel10-dell`: a RHEL-family laptop server that turns podcast links into processed Obsidian notes.
 
 **Status: first draft, not yet run on a real machine.** It passes YAML and Ansible syntax checks only. Expect to fix details on the first run, especially the Quadlet files, the Tailscale repo path, and file ownership around the inbox. Do the first run with `--check` and read the output.
 
 ## What it builds
 
 ```
-your PC (Ansible)  --ssh-->  apc-dell
+your PC (Ansible)  --ssh-->  rhel10-dell
                               ├─ base       packages, SELinux enforcing, firewalld, SSH hardening, Cockpit, security updates
                               ├─ users      pipeline and agent (no sudo, locked passwords)
                               ├─ tailscale  repo, install, tailscale0 in the trusted zone
@@ -52,7 +52,7 @@ Run a single role with `--tags base`, `--tags pipeline`, and so on.
 
 **Tailscale**
 ```bash
-sudo tailscale up --hostname=apc-dell
+sudo tailscale up --hostname=rhel10-dell
 ```
 Then in the admin console, turn on MagicDNS and HTTPS certificates. Switch `inventory.ini` to the tailnet name.
 
@@ -73,7 +73,7 @@ Set `start_pipeline: true` in `group_vars/all.yml` and re-run `--tags pipeline`.
 ```bash
 sudo tailscale serve --bg 5678
 ```
-Open `https://apc-dell.your-tailnet.ts.net`, create the owner account, and turn on 2FA.
+Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, and turn on 2FA.
 
 **Load the Whisper model (once)**
 ```bash
@@ -86,7 +86,7 @@ Check the speaches docs for the current image tag and model route. They change.
 ```bash
 sudo machinectl shell agent@
 ob login
-ob sync-setup --vault "Make" --path /home/agent/vaults/Make --device-name apc-dell
+ob sync-setup --vault "Make" --path /home/agent/vaults/Make --device-name rhel10-dell
 ob sync-config --path /home/agent/vaults/Make --configs ""
 ob sync --path /home/agent/vaults/Make
 exit

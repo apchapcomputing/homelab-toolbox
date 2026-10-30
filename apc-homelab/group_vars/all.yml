@@ -5,8 +5,8 @@
 admin_user: apc
 pipeline_user: pipeline   # runs rootless Podman: n8n, Postgres, Whisper
 agent_user: agent         # runs Claude Code and Obsidian Sync, owns the vault
-host_short: apc-dell
-ts_fqdn: apc-dell.your-tailnet.ts.net
+host_short: rhel10-dell
+ts_fqdn: rhel10-dell.your-tailnet.ts.net
 timezone: America/New_York
 
 # Run state. Flip these to true as the manual steps in the README get done.
