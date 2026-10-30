@@ -70,41 +70,24 @@
     group: root
     mode: "0644"
 
-# The vault lives in the agent's home. The admin user gets read access so the weekly
-# git push can run without the agent ever holding the GitHub key.
+# The vault sits outside both home directories. The agent owns it. The admin user reads
+# it through the group, so the weekly git push works without the agent holding the
+# GitHub key. Setgid keeps new files in that group.
 - name: Vault root
   ansible.builtin.file:
     path: "{{ vault_root }}"
     state: directory
     owner: "{{ agent_user }}"
-    group: "{{ agent_user }}"
-    mode: "0750"
+    group: "{{ vault_read_group }}"
+    mode: "2750"
 
-- name: Let the admin user walk into the agent's home
-  ansible.posix.acl:
-    path: "/home/{{ agent_user }}"
-    entity: "{{ admin_user }}"
-    etype: user
-    permissions: x
-    state: present
-
-- name: Let the admin user read the vault
-  ansible.posix.acl:
-    path: "{{ vault_root }}"
-    entity: "{{ admin_user }}"
-    etype: user
-    permissions: rX
-    recursive: true
-    state: present
-
-- name: Same for files created later (default ACL)
-  ansible.posix.acl:
-    path: "{{ vault_root }}"
-    entity: "{{ admin_user }}"
-    etype: user
-    permissions: rX
-    default: true
-    state: present
+- name: Shortcut to the vault in the admin user's home
+  ansible.builtin.file:
+    src: "{{ vault_root }}"
+    dest: "/home/{{ admin_user }}/vaults"
+    state: link
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
 
 - name: Forced-command script that n8n's SSH key may run
   ansible.builtin.template:

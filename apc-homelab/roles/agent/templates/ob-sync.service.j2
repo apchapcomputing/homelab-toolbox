@@ -12,7 +12,7 @@ RestartSec=10
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ReadWritePaths=/home/{{ agent_user }}
+ReadWritePaths=/home/{{ agent_user }} {{ vault_root }}
 
 [Install]
 WantedBy=multi-user.target

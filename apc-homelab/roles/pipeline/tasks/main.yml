@@ -23,14 +23,6 @@
     mode: "0755"
     recurse: true
 
-- name: Parent directory for the inbox
-  ansible.builtin.file:
-    path: /srv/brain
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
 # n8n writes new clippings here. The agent user may move them out, nothing else.
 - name: Inbox directory (owned by the pipeline user)
   ansible.builtin.file:

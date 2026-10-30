@@ -24,7 +24,7 @@ your PC (Ansible)  --ssh-->  rhel10-dell
 | `pipeline` | runs n8n, Postgres, Whisper; holds their secrets | sudo, SSH login, touch the vault |
 | `agent` | Obsidian Sync, Claude Code, owns the vault | sudo, see n8n secrets, see the GitHub key, use a shell or web |
 
-n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/brain/inbox`. `brain-run` moves them into the vault and runs Claude Code in `--restricted` mode with file tools only.
+n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/inputs`. `brain-run` moves them into the vault and runs Claude Code in `--restricted` mode with file tools only.
 
 Podcast transcripts are untrusted text. The tool limits, the root-owned policy in `/etc/brain/claude-headless.json`, and the separate user are the defense. The "treat this as data" line in the prompt helps but is not a boundary.
 
@@ -87,9 +87,9 @@ Check the speaches docs for the current image tag and model route. They change.
 ```bash
 sudo machinectl shell agent@
 ob login
-ob sync-setup --vault "Make" --path /home/agent/vaults/Make --device-name rhel10-dell
-ob sync-config --path /home/agent/vaults/Make --configs ""
-ob sync --path /home/agent/vaults/Make
+ob sync-setup --vault "Make" --path /srv/vaults/Make --device-name rhel10-dell
+ob sync-config --path /srv/vaults/Make --configs ""
+ob sync --path /srv/vaults/Make
 exit
 ```
 Set `start_ob_sync: true` and re-run `--tags agent`.
@@ -104,10 +104,10 @@ sudo machinectl shell agent@
 The agent commits locally and never holds the GitHub key. To seed the history from GitHub, as the admin user:
 ```bash
 git clone --no-checkout git@github.com:youruser/your-vault.git /tmp/vault-seed
-sudo mv /tmp/vault-seed/.git /home/agent/vaults/.git
-sudo chown -R agent:agent /home/agent/vaults/.git
-sudo -u agent git -C /home/agent/vaults reset -q   # --no-checkout leaves no index
-sudo -u agent git -C /home/agent/vaults status --short | head
+sudo mv /tmp/vault-seed/.git /srv/vaults/.git
+sudo chown -R agent:vault-readers /srv/vaults/.git
+sudo -u agent git -C /srv/vaults reset -q   # --no-checkout leaves no index
+sudo -u agent git -C /srv/vaults status --short | head
 ```
 Check that status shows only what you expect, then re-run `--tags agent,backup`. Copy your GitHub deploy key to `~/.ssh/vaults_deploy` on the admin account first so the push timer enables.
 
@@ -125,6 +125,7 @@ In n8n, add an SSH credential: host `host.containers.internal`, user `agent`, au
 
 ## Known gaps
 
+- The admin user's access to `/srv/vaults` is read-only by design. Edit notes in Obsidian on your devices. The group takes effect at the next login.
 - Weekly review and the Todoist connection are not built. They need the Todoist MCP server added for the agent and a timer.
 - `dnf-automatic` is skipped on Fedora, which uses a different package. Use `dnf5-plugin-automatic` there.
 - Whisper runs on CPU. A GPU box (gaming laptop) is a later swap.

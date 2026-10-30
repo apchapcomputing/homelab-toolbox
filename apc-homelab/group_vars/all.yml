@@ -19,9 +19,10 @@ postgres_image: docker.io/library/postgres:17.10
 whisper_image: ghcr.io/speaches-ai/speaches:0.8.3-cpu
 
 # Vault
-vault_root: /home/agent/vaults
+vault_root: /srv/vaults
+vault_read_group: vault-readers   # the admin user reads the vault through this group
 vault_name: Make
-inbox_dir: /srv/brain/inbox
+inbox_dir: /srv/inputs
 claude_bin: /home/agent/.local/bin/claude
 claude_headless_settings: /etc/brain/claude-headless.json
 
