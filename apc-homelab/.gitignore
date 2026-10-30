@@ -1,0 +1,7 @@
+inventory.ini
+*.retry
+*.vault.yml
+group_vars/secrets.yml
+.env
+n8n_to_agent
+n8n_to_agent.pub

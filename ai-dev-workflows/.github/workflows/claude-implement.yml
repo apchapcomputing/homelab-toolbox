@@ -1,0 +1,47 @@
+name: Claude implements ai-ready issues
+
+# You add the ai-ready label by hand after reading the issue. That label is the
+# only trigger. Claude pushes a branch (claude/...) and comments with a link to
+# open the PR. You open it, CI and the Vercel preview run, you review and merge.
+on:
+  issues:
+    types: [labeled]
+
+# One run per issue. Label two or three at a time so usage limits last.
+concurrency:
+  group: claude-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.event.label.name == 'ai-ready'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Subscription token from `claude setup-token`. For heavy use, switch to
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }} and set a spend cap.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          label_trigger: ai-ready
+          branch_prefix: claude/
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Bash(npm run lint),Bash(npm run typecheck),Bash(npm run test:*),Bash(npm run build)"

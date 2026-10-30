@@ -1,0 +1,10 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Push the vault's local commits to GitHub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ admin_user }}
+ExecStart=/usr/local/bin/vault-push

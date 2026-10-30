@@ -1,0 +1,40 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=n8n
+Requires=postgres.service
+After=postgres.service
+
+[Container]
+ContainerName=n8n
+Image=docker.n8n.io/n8nio/n8n:{{ n8n_version }}
+Pod=brain.pod
+# Root inside a rootless container is the unprivileged pipeline user on the host.
+# That keeps ownership of n8n's data and the inbox files simple.
+User=0
+Group=0
+Environment=N8N_USER_FOLDER=/home/node
+Environment=TZ={{ timezone }}
+Environment=GENERIC_TIMEZONE={{ timezone }}
+Environment=DB_TYPE=postgresdb
+Environment=DB_POSTGRESDB_HOST=127.0.0.1
+Environment=DB_POSTGRESDB_DATABASE=n8n
+Environment=DB_POSTGRESDB_USER=n8n
+Environment=N8N_HOST={{ ts_fqdn }}
+Environment=N8N_PROTOCOL=https
+Environment=WEBHOOK_URL=https://{{ ts_fqdn }}/
+Environment=N8N_PROXY_HOPS=1
+Environment=N8N_RESTRICT_FILE_ACCESS_TO=/inbox
+Environment=EXECUTIONS_DATA_PRUNE=true
+Environment=EXECUTIONS_DATA_MAX_AGE=168
+Environment=N8N_DIAGNOSTICS_ENABLED=false
+Secret=postgres_password,type=env,target=DB_POSTGRESDB_PASSWORD
+Secret=n8n_encryption_key,type=env,target=N8N_ENCRYPTION_KEY
+Volume=n8n-data.volume:/home/node/.n8n
+Volume={{ inbox_dir }}:/inbox:z
+
+[Service]
+Restart=always
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

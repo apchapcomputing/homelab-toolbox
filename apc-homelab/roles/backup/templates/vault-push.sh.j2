@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Managed by Ansible (apc-homelab).
+# Runs as the admin user. The agent never sees the GitHub key.
+# Push is fast-forward only: if the agent ever rewrote history, GitHub rejects it
+# and the last good copy stays intact.
+set -euo pipefail
+export GIT_SSH_COMMAND="ssh -i {{ backup_deploy_key }} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+git -c safe.directory="{{ vault_root }}" -C "{{ vault_root }}" push "{{ github_backup_url }}" main

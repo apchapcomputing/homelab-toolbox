@@ -1,0 +1,23 @@
+---
+- name: Service users (no sudo, locked password, not in the SSH allow list except agent)
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    shell: /bin/bash
+    create_home: true
+    password_lock: true
+  loop:
+    - { name: "{{ pipeline_user }}", comment: "n8n, Postgres, Whisper (rootless Podman)" }
+    - { name: "{{ agent_user }}", comment: "Claude Code and Obsidian Sync" }
+
+- name: Check rootless Podman has subordinate IDs for the pipeline user
+  ansible.builtin.command: grep -q "^{{ pipeline_user }}:" {{ item }}
+  loop:
+    - /etc/subuid
+    - /etc/subgid
+  changed_when: false
+
+- name: Let the pipeline user's containers start at boot without a login
+  ansible.builtin.command: loginctl enable-linger {{ pipeline_user }}
+  args:
+    creates: "/var/lib/systemd/linger/{{ pipeline_user }}"

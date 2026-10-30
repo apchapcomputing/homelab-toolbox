@@ -1,0 +1,9 @@
+# Managed by Ansible (apc-homelab).
+# One pod, so n8n reaches Postgres and Whisper on 127.0.0.1 (no container DNS).
+[Unit]
+Description=Brain pod (n8n, Postgres, Whisper)
+
+[Pod]
+PodName=brain
+# Only n8n's UI is published, and only on localhost. Tailscale serve adds HTTPS.
+PublishPort=127.0.0.1:5678:5678

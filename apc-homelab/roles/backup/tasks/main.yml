@@ -1,0 +1,37 @@
+---
+- name: Weekly push script
+  ansible.builtin.template:
+    src: vault-push.sh.j2
+    dest: /usr/local/bin/vault-push
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Push service and timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - vault-push.service
+    - vault-push.timer
+  register: push_units
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: push_units is changed
+
+- name: Is the deploy key in place?
+  ansible.builtin.stat:
+    path: "{{ backup_deploy_key }}"
+  register: deploy_key
+
+- name: Enable the weekly push timer (needs the deploy key)
+  ansible.builtin.systemd:
+    name: vault-push.timer
+    enabled: true
+    state: started
+  when: deploy_key.stat.exists

@@ -1,0 +1,36 @@
+---
+# Names and paths live here, so a rename is one edit.
+
+# People and machines
+admin_user: apc
+pipeline_user: pipeline   # runs rootless Podman: n8n, Postgres, Whisper
+agent_user: agent         # runs Claude Code and Obsidian Sync, owns the vault
+host_short: apc-dell
+ts_fqdn: apc-dell.your-tailnet.ts.net
+timezone: America/New_York
+
+# Run state. Flip these to true as the manual steps in the README get done.
+start_pipeline: false     # after the Podman secrets exist
+start_ob_sync: false      # after `ob login` and `ob sync-setup` as the agent user
+
+# Containers. Pin real tags before the first start.
+n8n_version: "PIN_ME"
+postgres_image: docker.io/library/postgres:16
+whisper_image: ghcr.io/speaches-ai/speaches:latest-cpu
+
+# Vault
+vault_root: /home/agent/vaults
+vault_name: Make
+inbox_dir: /srv/brain/inbox
+claude_bin: /home/agent/.local/bin/claude
+
+# n8n reaches the agent over SSH with a restricted key.
+# Paste the PUBLIC key here (the private half goes into n8n's SSH credential).
+n8n_ssh_pubkey: ""
+
+# Weekly push of the vault to GitHub, run as the admin user.
+github_backup_url: git@github.com:youruser/your-vault.git
+backup_deploy_key: "/home/{{ admin_user }}/.ssh/vaults_deploy"
+
+# Keep SSH open on the LAN until you have confirmed Tailscale SSH works.
+lan_ssh: true

@@ -1,0 +1,98 @@
+---
+- name: Look up the pipeline user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ pipeline_user }}"
+
+- name: Remember its numeric ID
+  ansible.builtin.set_fact:
+    pipeline_uid: "{{ getent_passwd[pipeline_user][1] }}"
+
+- name: Stop if n8n is not pinned and the pipeline is about to start
+  ansible.builtin.assert:
+    that: n8n_version != 'PIN_ME'
+    fail_msg: Set n8n_version in group_vars/all.yml to a real release tag. Never use latest.
+  when: start_pipeline
+
+- name: Quadlet directory
+  ansible.builtin.file:
+    path: "/home/{{ pipeline_user }}/.config/containers/systemd"
+    state: directory
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: "0755"
+    recurse: true
+
+- name: Parent directory for the inbox
+  ansible.builtin.file:
+    path: /srv/brain
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# n8n writes new clippings here. The agent user may move them out, nothing else.
+- name: Inbox directory (owned by the pipeline user)
+  ansible.builtin.file:
+    path: "{{ inbox_dir }}"
+    state: directory
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: "0750"
+
+- name: Let the agent user read and remove inbox files
+  ansible.posix.acl:
+    path: "{{ inbox_dir }}"
+    entity: "{{ agent_user }}"
+    etype: user
+    permissions: rwx
+    state: present
+
+- name: Same for files n8n creates later (default ACL)
+  ansible.posix.acl:
+    path: "{{ inbox_dir }}"
+    entity: "{{ agent_user }}"
+    etype: user
+    permissions: rwx
+    default: true
+    state: present
+
+- name: Quadlet files
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/home/{{ pipeline_user }}/.config/containers/systemd/{{ item }}"
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: "0644"
+  loop:
+    - brain.pod
+    - postgres.container
+    - n8n.container
+    - whisper.container
+    - pgdata.volume
+    - n8n-data.volume
+    - whisper-cache.volume
+  register: quadlet_files
+
+- name: Reload the pipeline user's systemd so Quadlet regenerates its units
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: user
+  become_user: "{{ pipeline_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ pipeline_uid }}"
+  when: quadlet_files is changed
+
+- name: Start the containers (only after the Podman secrets exist)
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+    state: started
+    scope: user
+  become_user: "{{ pipeline_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ pipeline_uid }}"
+  loop:
+    - postgres
+    - n8n
+    - whisper
+  when: start_pipeline

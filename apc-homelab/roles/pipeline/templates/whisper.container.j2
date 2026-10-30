@@ -1,0 +1,17 @@
+# Managed by Ansible (apc-homelab).
+# Reached by n8n at http://127.0.0.1:8000 (same pod). Not published to the host.
+[Unit]
+Description=Whisper speech-to-text (speaches, CPU)
+
+[Container]
+ContainerName=whisper
+Image={{ whisper_image }}
+Pod=brain.pod
+Volume=whisper-cache.volume:/home/ubuntu/.cache/huggingface/hub
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

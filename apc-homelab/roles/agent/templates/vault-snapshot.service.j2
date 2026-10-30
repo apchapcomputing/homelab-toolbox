@@ -1,0 +1,8 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Commit a local snapshot of the vault
+
+[Service]
+Type=oneshot
+User={{ agent_user }}
+ExecStart=/usr/local/bin/vault-snapshot

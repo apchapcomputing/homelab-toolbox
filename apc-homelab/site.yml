@@ -1,0 +1,27 @@
+---
+- name: Base host, users, Tailscale
+  hosts: homelab
+  become: true
+  roles:
+    - role: base
+      tags: [base]
+    - role: users
+      tags: [users]
+    - role: tailscale
+      tags: [tailscale]
+
+- name: Pipeline (n8n, Postgres, Whisper in rootless Podman)
+  hosts: homelab
+  become: true
+  roles:
+    - role: pipeline
+      tags: [pipeline]
+
+- name: Agent (Obsidian Sync, Claude Code, vault) and weekly backup
+  hosts: homelab
+  become: true
+  roles:
+    - role: agent
+      tags: [agent]
+    - role: backup
+      tags: [backup]

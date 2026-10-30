@@ -1,0 +1,18 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Obsidian Sync (headless) for {{ vault_name }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ agent_user }}
+ExecStart=/usr/local/bin/ob sync --continuous --path {{ vault_root }}/{{ vault_name }}
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/home/{{ agent_user }}
+
+[Install]
+WantedBy=multi-user.target

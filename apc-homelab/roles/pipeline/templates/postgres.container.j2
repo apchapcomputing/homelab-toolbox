@@ -1,0 +1,24 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Postgres for n8n
+
+[Container]
+ContainerName=postgres
+Image={{ postgres_image }}
+Pod=brain.pod
+Environment=POSTGRES_USER=n8n
+Environment=POSTGRES_DB=n8n
+Secret=postgres_password,type=env,target=POSTGRES_PASSWORD
+Volume=pgdata.volume:/var/lib/postgresql/data
+HealthCmd=pg_isready -U n8n -d n8n
+HealthInterval=10s
+HealthRetries=10
+# The unit counts as started only once the health check passes.
+Notify=healthy
+
+[Service]
+Restart=always
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

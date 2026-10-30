@@ -1,0 +1,98 @@
+---
+- name: Check the admin user has an SSH key before SSH is locked down
+  ansible.builtin.stat:
+    path: "/home/{{ admin_user }}/.ssh/authorized_keys"
+  register: admin_keys
+
+- name: Stop if the admin user cannot log in with a key
+  ansible.builtin.assert:
+    that: admin_keys.stat.exists and admin_keys.stat.size > 0
+    fail_msg: >-
+      /home/{{ admin_user }}/.ssh/authorized_keys is missing or empty.
+      Run ssh-copy-id first, or the SSH hardening below locks you out.
+
+- name: Set the hostname
+  ansible.builtin.hostname:
+    name: "{{ host_short }}"
+
+- name: Install base packages
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - cockpit
+      - cockpit-podman
+      - firewalld
+      - git
+      - acl
+      - policycoreutils-python-utils
+      - tmux
+    state: present
+
+- name: Keep SELinux enforcing
+  ansible.posix.selinux:
+    policy: targeted
+    state: enforcing
+
+- name: Enable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+
+- name: Keep SSH open on the LAN while lan_ssh is true
+  ansible.posix.firewalld:
+    service: ssh
+    permanent: true
+    immediate: true
+    state: "{{ 'enabled' if lan_ssh else 'disabled' }}"
+
+- name: Do not expose Cockpit on the LAN (it is reached over Tailscale)
+  ansible.posix.firewalld:
+    service: cockpit
+    permanent: true
+    immediate: true
+    state: disabled
+
+- name: Enable Cockpit
+  ansible.builtin.systemd:
+    name: cockpit.socket
+    enabled: true
+    state: started
+
+- name: SSH hardening drop-in
+  ansible.builtin.template:
+    src: sshd_hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-apc-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: sshd_dropin
+
+- name: Check the SSH config parses before restarting sshd
+  ansible.builtin.command: sshd -t
+  changed_when: false
+  when: sshd_dropin is changed
+  notify: Restart sshd
+
+- name: Install dnf-automatic (security updates only)
+  ansible.builtin.dnf:
+    name: dnf-automatic
+    state: present
+  when: ansible_distribution != 'Fedora'
+
+- name: Apply security updates automatically
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^\s*upgrade_type\s*=', line: 'upgrade_type = security' }
+    - { regexp: '^\s*apply_updates\s*=', line: 'apply_updates = yes' }
+  when: ansible_distribution != 'Fedora'
+
+- name: Enable the dnf-automatic timer
+  ansible.builtin.systemd:
+    name: dnf-automatic.timer
+    enabled: true
+    state: started
+  when: ansible_distribution != 'Fedora'

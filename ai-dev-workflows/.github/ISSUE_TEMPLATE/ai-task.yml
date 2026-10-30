@@ -1,0 +1,33 @@
+name: AI task
+description: A small, well-scoped change for Claude to implement
+title: "[ai] "
+# ai-draft is NOT a trigger. Add ai-ready yourself after you have read the issue.
+labels: ["ai-draft"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should change, and why. One or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A checklist a reviewer can verify. Include the tests that must pass.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope
+      description: Things Claude must not touch (auth, billing, migrations, workflows).
+  - type: textarea
+    id: areas
+    attributes:
+      label: Where to look
+      description: Files, routes, or components. Skip if unknown.

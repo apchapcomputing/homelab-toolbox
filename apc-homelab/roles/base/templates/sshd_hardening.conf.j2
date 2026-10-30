@@ -1,0 +1,13 @@
+# Managed by Ansible (apc-homelab).
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+X11Forwarding no
+AllowUsers {{ admin_user }} {{ agent_user }}
+
+# The agent user only exists for the n8n key, which has a forced command.
+Match User {{ agent_user }}
+    AllowTcpForwarding no
+    X11Forwarding no
+    PermitTTY no
+    AllowAgentForwarding no
