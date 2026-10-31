@@ -38,8 +38,9 @@ claude_bin: /home/agent/.local/bin/claude
 claude_headless_settings: /etc/brain/claude-headless.json
 
 # Vault-relative files the pipeline run may edit besides Input/Clippings/.
-# Add the tag guide your CLAUDE.md names, for example "Input/Tags.md".
-agent_extra_writable: []
+# The tag guide is where Input/CLAUDE.md says new tags are recorded.
+agent_extra_writable:
+  - "Input/+ Guide.md"
 
 # n8n reaches the agent over SSH with a restricted key.
 # Paste the PUBLIC key here (the private half goes into n8n's SSH credential).

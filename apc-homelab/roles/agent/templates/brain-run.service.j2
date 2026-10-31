@@ -1,0 +1,10 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Process inbox notes and retry any clipping without a summary
+
+[Service]
+Type=oneshot
+User={{ agent_user }}
+Environment=SSH_ORIGINAL_COMMAND=process
+ExecStart=/usr/local/bin/brain-run
+TimeoutStartSec=3600
