@@ -25,7 +25,9 @@
 
 - name: Stop if Node is older than 22
   ansible.builtin.assert:
-    that: (node_version.stdout | regex_replace('^v(\d+)\..*$', '\1') | int) >= 22
+    # A version test, not regex_replace with '\1': in a conditional on ansible-core 2.21,
+    # that backslash-1 is not read as a regex group, so the old check failed on Node 22.
+    that: (node_version.stdout | trim | regex_replace('^v', '')) is version('22', '>=')
     fail_msg: "Obsidian Headless needs Node 22 or later, found {{ node_version.stdout }}."
 
 - name: Install the Obsidian headless client
