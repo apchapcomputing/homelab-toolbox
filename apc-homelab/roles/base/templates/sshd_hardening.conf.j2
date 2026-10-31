@@ -7,6 +7,7 @@ AllowUsers {{ admin_user }} {{ agent_user }}
 
 # The agent user only exists for the n8n key, which has a forced command.
 Match User {{ agent_user }}
+    AuthorizedKeysFile /etc/ssh/authorized_keys/%u
     AllowTcpForwarding no
     X11Forwarding no
     PermitTTY no

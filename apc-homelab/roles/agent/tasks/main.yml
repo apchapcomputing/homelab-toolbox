@@ -1,34 +1,4 @@
 ---
-# Node 22+ is required by the Obsidian headless client.
-- name: Enable the Node 22 module stream (RHEL and CentOS 9)
-  ansible.builtin.command: dnf module enable -y nodejs:22
-  when:
-    - ansible_distribution in ['RedHat', 'CentOS']
-    - ansible_distribution_major_version == '9'
-  changed_when: false
-
-- name: Install Node and npm
-  ansible.builtin.dnf:
-    name:
-      - nodejs
-      - npm
-    state: present
-
-- name: Read the Node version
-  ansible.builtin.command: node --version
-  register: node_version
-  changed_when: false
-
-- name: Stop if Node is older than 22
-  ansible.builtin.assert:
-    that: (node_version.stdout | regex_replace('^v(\d+)\..*$', '\1') | int) >= 22
-    fail_msg: "Obsidian Headless needs Node 22 or later, found {{ node_version.stdout }}."
-
-- name: Install the Obsidian headless client
-  ansible.builtin.command: npm install -g --prefix /usr/local obsidian-headless
-  args:
-    creates: /usr/local/bin/ob
-
 # Claude Code installs per user, so the agent gets its own copy and its own login.
 - name: Agent cache directory
   ansible.builtin.file:
@@ -52,57 +22,23 @@
   args:
     creates: "{{ claude_bin }}"
 
-- name: Claude Code settings directory
+# Root-owned on purpose. The agent can edit anything in its own home, so a policy
+# kept in ~/.claude could be rewritten by the run it is meant to limit.
+- name: Directory for the headless Claude policy
   ansible.builtin.file:
-    path: "/home/{{ agent_user }}/.claude"
+    path: "{{ claude_headless_settings | dirname }}"
     state: directory
-    owner: "{{ agent_user }}"
-    group: "{{ agent_user }}"
-    mode: "0700"
+    owner: root
+    group: root
+    mode: "0755"
 
-- name: Claude Code permissions (read, edit, write only)
+- name: Claude Code policy for pipeline runs (scoped edits, no shell, no web)
   ansible.builtin.template:
-    src: claude-settings.json.j2
-    dest: "/home/{{ agent_user }}/.claude/settings.json"
-    owner: "{{ agent_user }}"
-    group: "{{ agent_user }}"
-    mode: "0600"
-
-# The vault lives in the agent's home. The admin user gets read access so the weekly
-# git push can run without the agent ever holding the GitHub key.
-- name: Vault root
-  ansible.builtin.file:
-    path: "{{ vault_root }}"
-    state: directory
-    owner: "{{ agent_user }}"
-    group: "{{ agent_user }}"
-    mode: "0750"
-
-- name: Let the admin user walk into the agent's home
-  ansible.posix.acl:
-    path: "/home/{{ agent_user }}"
-    entity: "{{ admin_user }}"
-    etype: user
-    permissions: x
-    state: present
-
-- name: Let the admin user read the vault
-  ansible.posix.acl:
-    path: "{{ vault_root }}"
-    entity: "{{ admin_user }}"
-    etype: user
-    permissions: rX
-    recursive: true
-    state: present
-
-- name: Same for files created later (default ACL)
-  ansible.posix.acl:
-    path: "{{ vault_root }}"
-    entity: "{{ admin_user }}"
-    etype: user
-    permissions: rX
-    default: true
-    state: present
+    src: claude-headless.json.j2
+    dest: "{{ claude_headless_settings }}"
+    owner: root
+    group: root
+    mode: "0644"
 
 - name: Forced-command script that n8n's SSH key may run
   ansible.builtin.template:
@@ -112,22 +48,24 @@
     group: root
     mode: "0755"
 
-- name: Authorize n8n's key for the agent user, locked to that one script
-  ansible.posix.authorized_key:
-    user: "{{ agent_user }}"
-    key: "{{ n8n_ssh_pubkey }}"
-    key_options: 'command="/usr/local/bin/brain-run",restrict'
-    comment: n8n
-  when: n8n_ssh_pubkey | length > 0
+# Outside the agent's home, so nothing running as the agent can add a key.
+# sshd_hardening.conf points the agent user at this file.
+- name: Directory for root-owned authorized_keys
+  ansible.builtin.file:
+    path: /etc/ssh/authorized_keys
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
 
-- name: Obsidian Sync service
-  ansible.builtin.template:
-    src: ob-sync.service.j2
-    dest: /etc/systemd/system/ob-sync.service
+- name: Authorize n8n's key for the agent user, locked to that one script
+  ansible.builtin.copy:
+    content: 'command="/usr/local/bin/brain-run",restrict {{ n8n_ssh_pubkey }} n8n{{ "\n" }}'
+    dest: "/etc/ssh/authorized_keys/{{ agent_user }}"
     owner: root
     group: root
     mode: "0644"
-  register: ob_unit
+  when: n8n_ssh_pubkey | length > 0
 
 - name: Daily local snapshot script
   ansible.builtin.template:
@@ -152,19 +90,12 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
-  when: ob_unit is changed or snapshot_units is changed
+  when: snapshot_units is changed
 
 - name: Is the vault a git repo yet?
   ansible.builtin.stat:
     path: "{{ vault_root }}/.git"
   register: vault_git
-
-- name: Start Obsidian Sync (after ob login and sync-setup)
-  ansible.builtin.systemd:
-    name: ob-sync.service
-    enabled: true
-    state: started
-  when: start_ob_sync
 
 - name: Enable the daily snapshot timer (needs the git repo)
   ansible.builtin.systemd:

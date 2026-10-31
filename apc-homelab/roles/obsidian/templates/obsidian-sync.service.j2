@@ -1,0 +1,18 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Obsidian Headless Continuous Sync ({{ item.name }} vault)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ obsidian_sync_user }}
+WorkingDirectory={{ vault_root }}/{{ item.name }}
+# Files the agent must edit are created group-writable. Private vaults stay private.
+UMask={{ '0002' if item.agent_access else '0077' }}
+ExecStart=/usr/local/bin/ob sync --continuous
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

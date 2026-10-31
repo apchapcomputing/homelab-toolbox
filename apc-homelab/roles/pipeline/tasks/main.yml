@@ -23,14 +23,6 @@
     mode: "0755"
     recurse: true
 
-- name: Parent directory for the inbox
-  ansible.builtin.file:
-    path: /srv/brain
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
 # n8n writes new clippings here. The agent user may move them out, nothing else.
 - name: Inbox directory (owned by the pipeline user)
   ansible.builtin.file:
@@ -38,7 +30,9 @@
     state: directory
     owner: "{{ pipeline_user }}"
     group: "{{ pipeline_user }}"
-    mode: "0750"
+    # Not 0750: on a directory with ACLs, the group bits are the ACL mask. 0750 would
+    # cap the agent at r-x on every re-run and break the move out of the inbox.
+    mode: "0770"
 
 - name: Let the agent user read and remove inbox files
   ansible.posix.acl:
@@ -57,6 +51,33 @@
     default: true
     state: present
 
+# Outside the Quadlet directory on purpose: Quadlet should not scan the build context.
+- name: Fetcher build context
+  ansible.builtin.file:
+    path: "/home/{{ pipeline_user }}/.config/containers/fetcher"
+    state: directory
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: "0755"
+
+- name: Fetcher source and Containerfile
+  ansible.builtin.copy:
+    src: fetcher/fetcher.py
+    dest: "/home/{{ pipeline_user }}/.config/containers/fetcher/fetcher.py"
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: "0644"
+  register: fetcher_source
+
+- name: Fetcher Containerfile
+  ansible.builtin.template:
+    src: fetcher.Containerfile.j2
+    dest: "/home/{{ pipeline_user }}/.config/containers/fetcher/Containerfile"
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: "0644"
+  register: fetcher_containerfile
+
 - name: Quadlet files
   ansible.builtin.template:
     src: "{{ item }}.j2"
@@ -69,6 +90,8 @@
     - postgres.container
     - n8n.container
     - whisper.container
+    - fetcher.build
+    - fetcher.container
     - pgdata.volume
     - n8n-data.volume
     - whisper-cache.volume
@@ -95,4 +118,19 @@
     - postgres
     - n8n
     - whisper
+    - fetcher
   when: start_pipeline
+
+# A running fetcher keeps its old image. Rebuild when the code or the yt-dlp pin changed.
+- name: Rebuild and restart the fetcher after a change
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+    state: restarted
+    scope: user
+  become_user: "{{ pipeline_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ pipeline_uid }}"
+  loop:
+    - fetcher-build
+    - fetcher
+  when: start_pipeline and (fetcher_source is changed or fetcher_containerfile is changed)

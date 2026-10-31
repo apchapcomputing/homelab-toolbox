@@ -4,25 +4,42 @@
 # People and machines
 admin_user: apc
 pipeline_user: pipeline   # runs rootless Podman: n8n, Postgres, Whisper
-agent_user: agent         # runs Claude Code and Obsidian Sync, owns the vault
-host_short: apc-dell
-ts_fqdn: apc-dell.your-tailnet.ts.net
+agent_user: agent         # runs Claude Code and writes notes into the make vault
+host_short: rhel10-dell
+ts_fqdn: rhel10-dell.your-tailnet.ts.net
 timezone: America/New_York
 
 # Run state. Flip these to true as the manual steps in the README get done.
 start_pipeline: false     # after the Podman secrets exist
-start_ob_sync: false      # after `ob login` and `ob sync-setup` as the agent user
+start_ob_sync: false      # after `ob login` and `ob sync-setup` as the admin user (docs/obsidian-sync.md)
 
 # Containers. Pin real tags before the first start.
-n8n_version: "PIN_ME"
-postgres_image: docker.io/library/postgres:16
-whisper_image: ghcr.io/speaches-ai/speaches:latest-cpu
+n8n_version: "2.43.5"
+postgres_image: docker.io/library/postgres:17.10
+whisper_image: ghcr.io/speaches-ai/speaches:0.8.3-cpu
+whisper_model: Systran/faster-whisper-small
+# The fetcher image is built on the server. Bump ytdlp_version when YouTube breaks it;
+# the image tag follows the version and the fetcher code, so a change rebuilds it.
+ytdlp_version: "2026.08.19"
 
 # Vault
-vault_root: /home/agent/vaults
-vault_name: Make
-inbox_dir: /srv/brain/inbox
+vault_root: /srv/vaults   # one git repo; each vault is a folder inside it
+vault_name: make          # the vault Claude writes into (a folder name under vault_root)
+
+# Obsidian Headless runs as the admin user. The agent edits the make vault through a
+# shared group. The live vault is closed to the agent (agent_access: false).
+obsidian_sync_user: "{{ admin_user }}"
+obsidian_group: obsidian
+obsidian_vaults:
+  - { name: make, agent_access: true }
+  - { name: live, agent_access: false }
+inbox_dir: /srv/inputs
 claude_bin: /home/agent/.local/bin/claude
+claude_headless_settings: /etc/brain/claude-headless.json
+
+# Vault-relative files the pipeline run may edit besides Input/Clippings/.
+# Add the tag guide your CLAUDE.md names, for example "Input/Tags.md".
+agent_extra_writable: []
 
 # n8n reaches the agent over SSH with a restricted key.
 # Paste the PUBLIC key here (the private half goes into n8n's SSH credential).
