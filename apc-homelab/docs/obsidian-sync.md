@@ -9,13 +9,13 @@ Obsidian Sync (cloud)
    │  one service per vault
    ▼
 obsidian-sync-make.service ──►  /srv/vaults/make   (apc:obsidian, 2775)  ◄── agent writes notes here
-obsidian-sync-live.service ──►  /srv/vaults/live   (apc:obsidian, 2700)      agent cannot read this
+obsidian-sync-live.service ──►  /srv/vaults/live   (apc:obsidian, 2775)      agent can read and write
 ```
 
 - `ob` runs as the admin user (`apc`). Its Obsidian login is stored in that account's home.
 - `/srv/vaults` is one git repo with the vault folders inside it. `live` is listed in its `.gitignore`.
 - The `obsidian` group holds `apc` and `agent`. The `make` vault is group-writable, so the agent can write summaries into it. New directories are setgid, so new files stay in the group. The sync service sets `UMask=0002` for `make`, so files `ob` creates are group-writable too.
-- `live` is closed to the group (`2700`) and its service uses `UMask=0077`.
+- `live` is shared the same way (`2775`, `UMask=0002`). Pipeline runs still cannot reach it: the policy only lets them edit `make/Input/Clippings` and the tag guide. Unlike `make`, `live` is not in the git snapshots, so Obsidian Sync's version history is its only undo layer. Set `agent_access: false` on it in `group_vars/all.yml` to close it again (`2700`, `UMask=0077`).
 - Config sync is off (`--configs ""`). The server never pulls or changes your `.obsidian` settings. They come from git.
 
 Run every `ob` command as `apc`. Never as root and never as `agent`: the login belongs to the account that runs the services.
@@ -56,9 +56,9 @@ systemctl is-active obsidian-sync-make obsidian-sync-live        # both: active
 ob sync-status --path /srv/vaults/make
 sudo journalctl -u obsidian-sync-make -n 20 --no-pager
 
-# the agent can write in make, and cannot see live:
+# the agent can write in both vaults:
 sudo -u agent sh -c 'touch /srv/vaults/make/Input/Clippings/.perm-test && rm /srv/vaults/make/Input/Clippings/.perm-test && echo OK'
-sudo -u agent ls /srv/vaults/live      # Permission denied is the right answer
+sudo -u agent sh -c 'touch /srv/vaults/live/.perm-test && rm /srv/vaults/live/.perm-test && echo OK'
 ```
 
 After you edit a note on another device, check that the file synced down with group write:
@@ -78,9 +78,10 @@ sudo chgrp -R obsidian make .git
 sudo chmod -R g+rwX make .git
 sudo find make .git -type d -exec chmod g+s {} +
 
-# close live to the agent
+# share live the same way
 sudo chgrp -R obsidian live
-sudo chmod 2700 live
+sudo chmod -R g+rwX live
+sudo find live -type d -exec chmod g+s {} +
 
 # .git/config must belong to the sync user, not root (a root-run `git config` leaves it root-owned)
 sudo chown apc:obsidian .git/config

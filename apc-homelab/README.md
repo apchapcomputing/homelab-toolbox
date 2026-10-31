@@ -23,7 +23,7 @@ your PC (Ansible)  --ssh-->  rhel10-dell
 |---|---|---|
 | `apc` (admin) | SSH in, sudo, runs Obsidian Sync, holds the GitHub deploy key, pushes weekly | |
 | `pipeline` | runs n8n, Postgres, Whisper; holds their secrets | sudo, SSH login, touch the vault |
-| `agent` | Claude Code, writes notes into the `make` vault through the `obsidian` group, daily snapshot | sudo, see n8n secrets, see the GitHub key, see the `live` vault, use a shell or web |
+| `agent` | Claude Code, writes into the `make` and `live` vaults through the `obsidian` group (pipeline runs only reach `make/Input/Clippings`), daily snapshot | sudo, see n8n secrets, see the GitHub key, use a shell or web |
 
 n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/inputs`. `brain-run` moves them into the vault and runs Claude Code in `--restricted` mode with file tools only.
 

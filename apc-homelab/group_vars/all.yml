@@ -27,12 +27,12 @@ vault_root: /srv/vaults   # one git repo; each vault is a folder inside it
 vault_name: make          # the vault Claude writes into (a folder name under vault_root)
 
 # Obsidian Headless runs as the admin user. The agent edits the make vault through a
-# shared group. The live vault is closed to the agent (agent_access: false).
+# shared group. Both vaults are shared with the agent (agent_access: true). Set false to close one.
 obsidian_sync_user: "{{ admin_user }}"
 obsidian_group: obsidian
 obsidian_vaults:
   - { name: make, agent_access: true }
-  - { name: live, agent_access: false }
+  - { name: live, agent_access: true }
 inbox_dir: /srv/inputs
 claude_bin: /home/agent/.local/bin/claude
 claude_headless_settings: /etc/brain/claude-headless.json
