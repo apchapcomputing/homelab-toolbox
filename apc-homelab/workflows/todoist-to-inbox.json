@@ -1,0 +1,396 @@
+{
+  "name": "Todoist to inbox",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.todoist.com/api/v1/tasks",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "project_id",
+              "value": "6hv2jrpWj9QgvfR4"
+            }
+          ]
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Get open tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Todoist API token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Task text is data. Only a URL is taken from it; nothing in it is ever run.\nconst out = [];\nfor (const item of $input.first().json.results ?? []) {\n  if ((item.labels ?? []).includes('failed')) continue;   // remove the label to retry\n  const text = item.content ?? '';\n  const md = text.match(/\\[[^\\]]*\\]\\((https?:\\/\\/[^)\\s]+)\\)/);\n  const bare = text.match(/https?:\\/\\/[^\\s)]+/);\n  const url = md ? md[1] : (bare ? bare[0] : null);\n  if (url) out.push({ json: { taskId: item.id, url } });\n}\nreturn out;"
+      },
+      "name": "Pick links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "One at a time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8080/fetch",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $json.url }) }}",
+        "options": {
+          "timeout": 3600000
+        }
+      },
+      "name": "Fetch transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -100
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "note",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "={{ $json.filename }}",
+          "encoding": "utf8"
+        }
+      },
+      "name": "Make file",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/inbox/{{ $binary.data.fileName }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "name": "Write to inbox",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "command": "process",
+        "authentication": "privateKey"
+      },
+      "name": "Process (SSH)",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        -200
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "",
+          "name": "brain-run on rhel10-dell"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.todoist.com/api/v1/comments",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ task_id: $('One at a time').first().json.taskId, content: 'Saved to the vault inbox: ' + $('Make file').first().binary.data.fileName + (($json.error || $json.code) ? ' (summary will be retried hourly)' : '') }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Comment: saved",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Todoist API token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.todoist.com/api/v1/tasks/{{ $('One at a time').first().json.taskId }}/close",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Complete task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Todoist API token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.todoist.com/api/v1/tasks/{{ $('One at a time').first().json.taskId }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ labels: ['failed'] }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Label failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Todoist API token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.todoist.com/api/v1/comments",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ task_id: $('One at a time').first().json.taskId, content: 'Fetch failed: ' + String($('Fetch transcript').first().json.error?.message ?? 'unknown').slice(0, 300) + '. Remove the failed label to retry.' }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Comment: failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Todoist API token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Get open tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get open tasks": {
+      "main": [
+        [
+          {
+            "node": "Pick links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick links": {
+      "main": [
+        [
+          {
+            "node": "One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One at a time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fetch transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch transcript": {
+      "main": [
+        [
+          {
+            "node": "Make file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Label failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make file": {
+      "main": [
+        [
+          {
+            "node": "Write to inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to inbox": {
+      "main": [
+        [
+          {
+            "node": "Process (SSH)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process (SSH)": {
+      "main": [
+        [
+          {
+            "node": "Comment: saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comment: saved": {
+      "main": [
+        [
+          {
+            "node": "Complete task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete task": {
+      "main": [
+        [
+          {
+            "node": "One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Label failed": {
+      "main": [
+        [
+          {
+            "node": "Comment: failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comment: failed": {
+      "main": [
+        [
+          {
+            "node": "One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": -1
+  },
+  "active": false
+}
