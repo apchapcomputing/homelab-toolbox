@@ -2,7 +2,8 @@
 # Managed by Ansible (apc-homelab).
 # Forced command for n8n's SSH key. It runs as the agent user and accepts one request:
 #   ssh agent@host process
-# It moves new notes from the inbox into the vault, then runs Claude Code on them.
+# It moves new notes from the inbox into the vault, then runs Claude Code on every
+# clipping that still has an empty summary (so failed runs are retried).
 set -euo pipefail
 
 INBOX="{{ inbox_dir }}"
@@ -14,25 +15,39 @@ case "${SSH_ORIGINAL_COMMAND:-}" in
   *) echo "brain-run: only 'process' is allowed" >&2; exit 2 ;;
 esac
 
+# One run at a time. The hourly timer and n8n can both call this.
+mkdir -p "$HOME/.cache"
+exec 9>"$HOME/.cache/brain-run.lock"
+flock -w 3000 9 || { echo "brain-run: another run is still going" >&2; exit 75; }
+
 shopt -s nullglob
 moved=0
 for f in "$INBOX"/*.md; do
   name="$(basename "$f")"
-  # Plain filenames only. n8n should slugify titles before writing.
+  # Plain filenames only. The fetcher already cleans titles.
   if [[ ! "$name" =~ ^[A-Za-z0-9._\ ()-]+\.md$ ]]; then
     echo "skip '$name': unexpected characters in the filename" >&2
     continue
   fi
-  if [[ -e "$CLIPS/$name" ]]; then
-    echo "skip '$name': already in the vault" >&2
-    continue
-  fi
-  mv -n -- "$f" "$CLIPS/$name"
+  # Same title twice: keep both, never overwrite. Without this the second note
+  # would sit in the inbox forever.
+  target="$name"
+  n=2
+  while [[ -e "$CLIPS/$target" ]]; do
+    target="${name%.md} ($n).md"
+    n=$((n + 1))
+  done
+  mv -n -- "$f" "$CLIPS/$target"
   moved=$((moved + 1))
 done
 echo "moved $moved note(s) into Clippings"
 
-[[ "$moved" -gt 0 ]] || exit 0
+# Run Claude whenever any clipping still has an empty summary, not only when
+# something just arrived. A run that failed last time is retried this way.
+# find, not a bare glob: with no clippings grep would otherwise wait on stdin.
+pending="$(find "$CLIPS" -maxdepth 1 -name '*.md' -exec grep -lE '^summary:[[:space:]]*("")?[[:space:]]*$' {} + 2>/dev/null | wc -l || true)"
+echo "$pending clipping(s) waiting for a summary"
+[[ "$pending" -gt 0 ]] || exit 0
 
 cd "$VAULT"
 # --restricted removes Bash and WebFetch, ignores the agent's own settings files, and
