@@ -76,6 +76,18 @@
   loop_control:
     label: "{{ item.name }}"
 
+# live is group-writable, so the agent's daily `git add -A` would pick it up and the weekly
+# push would send it to GitHub. This writes the .gitignore the docs rely on.
+- name: Keep chosen vaults out of git
+  ansible.builtin.lineinfile:
+    path: "{{ vault_root }}/.gitignore"
+    line: "{{ item }}"
+    create: true
+    owner: "{{ obsidian_sync_user }}"
+    group: "{{ obsidian_group }}"
+    mode: "0664"
+  loop: "{{ vault_git_ignore }}"
+
 - name: Is the vault root a git repo yet?
   ansible.builtin.stat:
     path: "{{ vault_root }}/.git"
