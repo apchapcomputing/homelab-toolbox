@@ -13,7 +13,7 @@ obsidian-sync-live.service ──►  /srv/vaults/live   (apc:obsidian, 2775)   
 ```
 
 - `ob` runs as the admin user (`apc`). Its Obsidian login is stored in that account's home.
-- `/srv/vaults` is one git repo with the vault folders inside it. `live` is listed in its `.gitignore`.
+- `/srv/vaults` is one git repo with the vault folders inside it. `live` is listed in its `.gitignore` (the obsidian role writes `live/` there from `vault_git_ignore`, because the agent can read `live` and would otherwise commit it).
 - The `obsidian` group holds `apc` and `agent`. The `make` vault is group-writable, so the agent can write summaries into it. New directories are setgid, so new files stay in the group. The sync service sets `UMask=0002` for `make`, so files `ob` creates are group-writable too.
 - `live` is shared the same way (`2775`, `UMask=0002`). Pipeline runs still cannot reach it: the policy only lets them edit `make/Input/Clippings` and the tag guide. Unlike `make`, `live` is not in the git snapshots, so Obsidian Sync's version history is its only undo layer. Set `agent_access: false` on it in `group_vars/all.yml` to close it again (`2700`, `UMask=0077`).
 - Config sync is off (`--configs ""`). The server never pulls or changes your `.obsidian` settings. They come from git.
@@ -82,6 +82,11 @@ sudo find make .git -type d -exec chmod g+s {} +
 sudo chgrp -R obsidian live
 sudo chmod -R g+rwX live
 sudo find live -type d -exec chmod g+s {} +
+
+# keep live out of the repo the agent snapshots and apc pushes (the role does this too)
+grep -qx 'live/' /srv/vaults/.gitignore 2>/dev/null || echo 'live/' | sudo tee -a /srv/vaults/.gitignore
+# if live was ever committed, drop it from the index (the files stay on disk):
+sudo -u apc git -C /srv/vaults rm -r --cached --ignore-unmatch live
 
 # .git/config must belong to the sync user, not root (a root-run `git config` leaves it root-owned)
 sudo chown apc:obsidian .git/config

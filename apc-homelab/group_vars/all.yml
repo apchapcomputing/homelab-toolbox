@@ -33,6 +33,11 @@ obsidian_group: obsidian
 obsidian_vaults:
   - { name: make, agent_access: true }
   - { name: live, agent_access: true }
+
+# Folders kept out of the vault git repo. The agent snapshots that repo daily and the admin
+# pushes it to GitHub, so anything the agent can read and is not listed here gets pushed.
+vault_git_ignore:
+  - live/
 inbox_dir: /srv/inputs
 claude_bin: /home/agent/.local/bin/claude
 claude_headless_settings: /etc/brain/claude-headless.json
