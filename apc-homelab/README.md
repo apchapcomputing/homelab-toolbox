@@ -31,6 +31,8 @@ Podcast transcripts are untrusted text. The tool limits, the root-owned policy i
 
 ## Before the first run
 
+The full step-by-step for this box, from a clean repo to a working pipeline, is in [docs/runbook.md](docs/runbook.md).
+
 1. Install the OS (RHEL on a Developer subscription, CentOS Stream, or Fedora Server). Create the `apc` user with sudo.
 2. From your PC: `ssh-copy-id apc@<laptop-lan-ip>`, then confirm key login works.
 3. On your PC: `ansible-galaxy collection install -r requirements.yml`
@@ -80,9 +82,9 @@ Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, and tu
 **Load the Whisper model (once)**
 ```bash
 sudo machinectl shell pipeline@
-podman exec whisper curl -X POST http://localhost:8000/v1/models/Systran/faster-whisper-small
+podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())"
 ```
-Check the speaches docs for the current image tag and model route. They change.
+The whisper image has no guarantee of curl, so this goes through the fetcher container, which shares the pod's localhost. If the route is rejected, the speaches docs give `speaches-cli model download Systran/faster-whisper-small`, which does the same thing. Routes change between versions.
 
 **Obsidian Sync (as the admin user)**
 `ob` runs as `apc` and syncs `/srv/vaults/make` and `/srv/vaults/live`. The commands, checks, and fixes for a hand-made setup are in [docs/obsidian-sync.md](docs/obsidian-sync.md). Once `ob login` and `ob sync-setup` are done for each vault, set `start_ob_sync: true` and re-run `--tags obsidian`.
