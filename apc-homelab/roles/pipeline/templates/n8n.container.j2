@@ -27,6 +27,8 @@ Environment=N8N_RESTRICT_FILE_ACCESS_TO=/inbox
 Environment=EXECUTIONS_DATA_PRUNE=true
 Environment=EXECUTIONS_DATA_MAX_AGE=168
 Environment=N8N_DIAGNOSTICS_ENABLED=false
+# The pod's IPv6 route (pasta) is refused; Node tries IPv6 first and fails. Prefer IPv4.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
 Secret=postgres_password,type=env,target=DB_POSTGRESDB_PASSWORD
 Secret=n8n_encryption_key,type=env,target=N8N_ENCRYPTION_KEY
 Volume=n8n-data.volume:/home/node/.n8n
