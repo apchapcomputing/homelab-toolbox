@@ -1,0 +1,3 @@
+# Managed by Ansible (roles/agent). Read-only diagnostics for the agent user.
+# One root-owned script with fixed subcommands. No wildcards on commands, no shell, no editor.
+{{ agent_user }} ALL=(root) NOPASSWD: /usr/local/bin/agent-diag

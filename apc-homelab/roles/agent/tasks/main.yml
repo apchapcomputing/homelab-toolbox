@@ -48,6 +48,24 @@
     group: root
     mode: "0755"
 
+# Lets the agent read logs and status without a general sudo. Fixed read-only commands only.
+- name: Read-only diagnostics script for the agent
+  ansible.builtin.template:
+    src: agent-diag.sh.j2
+    dest: /usr/local/bin/agent-diag
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Let the agent run only that script with sudo
+  ansible.builtin.template:
+    src: agent-diag.sudoers.j2
+    dest: /etc/sudoers.d/agent-diag
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
 # Outside the agent's home, so nothing running as the agent can add a key.
 # sshd_hardening.conf points the agent user at this file.
 - name: Directory for root-owned authorized_keys

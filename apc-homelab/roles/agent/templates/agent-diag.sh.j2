@@ -1,0 +1,120 @@
+#!/bin/bash
+# Read-only diagnostics for the {{ agent_user }} user, run as: sudo /usr/local/bin/agent-diag <command>
+# Managed by Ansible (roles/agent). Root-owned; sudoers allows only this script.
+#
+# Fixed commands only. No arbitrary files, units or flags reach a root command: every unit comes from
+# an allowlist, every number is checked, and "ls" resolves symlinks before checking the path.
+# Nothing here changes state. Podman secrets and the pipeline user's home are deliberately not reachable.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C SYSTEMD_PAGER= SYSTEMD_COLORS=0 PAGER=cat
+
+SYSTEM_UNITS=" obsidian-sync-make.service obsidian-sync-live.service brain-run.service brain-run.timer
+ vault-snapshot.service vault-snapshot.timer sshd.service tailscaled.service firewalld.service
+ dnf-automatic.timer dnf-automatic.service systemd-logind.service cockpit.socket "
+USER_UNITS=" brain-pod.service postgres.service n8n.service whisper.service fetcher.service fetcher-build.service "
+LS_ROOTS=(/srv /etc/brain /etc/ssh/authorized_keys /etc/sudoers.d /usr/local/bin)
+PIPELINE_USER={{ pipeline_user }}
+
+die() { echo "agent-diag: $*" >&2; exit 2; }
+
+SYSTEM_UNITS="${SYSTEM_UNITS//$'\n'/ }"
+in_list() { case "$2" in *" $1 "*) return 0 ;; esac; return 1; }
+need_unit() {  # need_unit <name> <list>; accept "n8n" for "n8n.service"
+  local u="$1"
+  case "$u" in *.service|*.timer|*.socket) ;; *) u="$u.service" ;; esac
+  in_list "$u" "$2" || die "unit not allowed: $1 (try: agent-diag units)"
+  echo "$u"
+}
+lines() {  # lines [N] : default 50, max 500, digits only
+  local n="${1:-50}"
+  [[ "$n" =~ ^[0-9]{1,3}$ ]] && (( n >= 1 && n <= 500 )) || die "line count must be 1-500"
+  echo "$n"
+}
+pipeline_uid() { id -u "$PIPELINE_USER"; }
+as_pipeline() {
+  local uid; uid="$(pipeline_uid)"
+  runuser -u "$PIPELINE_USER" -- env XDG_RUNTIME_DIR="/run/user/$uid" "$@"
+}
+
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  help|-h|--help)
+    cat <<'EOF'
+agent-diag <command>   (read-only, run with sudo)
+  units                        list the units this tool can look at
+  failed                       failed units and the timer list
+  status <unit>                systemctl status of an allowed system unit
+  journal <unit> [N]           last N log lines of an allowed system unit (default 50, max 500)
+  user-status <unit>           status of a pipeline-user (Podman Quadlet) unit
+  user-journal <unit> [N]      last N log lines of a pipeline-user unit
+  containers                   podman ps -a for the pipeline user
+  denials [N]                  recent SELinux denials (AVC), last N lines
+  selinux                      getenforce
+  firewall                     firewall-cmd --list-all-zones
+  ports                        listening sockets (ss -tlnp)
+  tailscale                    tailscale status and serve status
+  show <name>                  print one config file: claude-policy subuid subgid logind sshd-hardening
+                               dnf-automatic sudoers-agent-diag
+  ls <path>                    ls -laZ under /srv /etc/brain /etc/ssh/authorized_keys /etc/sudoers.d /usr/local/bin
+EOF
+    ;;
+  units)
+    echo "system:$SYSTEM_UNITS"; echo "pipeline user:$USER_UNITS" ;;
+  failed)
+    systemctl --failed --no-pager --no-legend || true
+    systemctl list-timers --all --no-pager ;;
+  status)
+    [ $# -eq 1 ] || die "usage: status <unit>"
+    u="$(need_unit "$1" "$SYSTEM_UNITS")"
+    systemctl status --no-pager -l "$u" || true ;;
+  journal)
+    [ $# -ge 1 ] && [ $# -le 2 ] || die "usage: journal <unit> [N]"
+    u="$(need_unit "$1" "$SYSTEM_UNITS")"; n="$(lines "${2:-}")"
+    journalctl -u "$u" -n "$n" --no-pager ;;
+  user-status)
+    [ $# -eq 1 ] || die "usage: user-status <unit>"
+    u="$(need_unit "$1" "$USER_UNITS")"
+    systemctl --user --machine="$PIPELINE_USER@.host" status --no-pager -l "$u" || true ;;
+  user-journal)
+    [ $# -ge 1 ] && [ $# -le 2 ] || die "usage: user-journal <unit> [N]"
+    u="$(need_unit "$1" "$USER_UNITS")"; n="$(lines "${2:-}")"
+    journalctl --no-pager -n "$n" "_UID=$(pipeline_uid)" "USER_UNIT=$u" ;;
+  containers)
+    as_pipeline podman ps -a --format 'table {% raw %}{{.Names}}\t{{.Status}}\t{{.Image}}{% endraw %}' ;;
+  denials)
+    n="$(lines "${1:-}")"
+    { ausearch -m AVC,USER_AVC -ts today 2>/dev/null || true; } | tail -n "$n" ;;
+  selinux)
+    getenforce ;;
+  firewall)
+    firewall-cmd --list-all-zones ;;
+  ports)
+    ss -tlnp ;;
+  tailscale)
+    tailscale status || true; echo "--- serve"; tailscale serve status || true ;;
+  show)
+    [ $# -eq 1 ] || die "usage: show <name>"
+    case "$1" in
+      claude-policy)    f={{ claude_headless_settings }} ;;
+      subuid)           f=/etc/subuid ;;
+      subgid)           f=/etc/subgid ;;
+      logind)           f=/etc/systemd/logind.conf.d/10-server-lid.conf ;;
+      sshd-hardening)   f=/etc/ssh/sshd_config.d/10-apc-hardening.conf ;;
+      dnf-automatic)    f=/etc/dnf/automatic.conf ;;
+      sudoers-agent-diag) f=/etc/sudoers.d/agent-diag ;;
+      *) die "unknown name: $1" ;;
+    esac
+    cat -- "$f" ;;
+  ls)
+    [ $# -eq 1 ] || die "usage: ls <path>"
+    real="$(realpath -e -- "$1" 2>/dev/null)" || die "no such path: $1"
+    ok=no
+    for r in "${LS_ROOTS[@]}"; do
+      if [ "$real" = "$r" ] || [[ "$real" == "$r"/* ]]; then ok=yes; fi
+    done
+    [ "$ok" = yes ] || die "path outside the allowed roots: $real"
+    ls -laZ -- "$real" ;;
+  *)
+    die "unknown command: $cmd (try: agent-diag help)" ;;
+esac
