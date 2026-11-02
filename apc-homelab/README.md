@@ -62,11 +62,9 @@ Then in the admin console, turn on MagicDNS and HTTPS certificates. Switch `inve
 
 **Podman secrets (as the pipeline user)**
 ```bash
-sudo machinectl shell pipeline@
-openssl rand -hex 32 | tr -d '\n' | podman secret create postgres_password -
-openssl rand -hex 32 | tr -d '\n' | podman secret create n8n_encryption_key -
-podman secret inspect --showsecret n8n_encryption_key   # save this in your password manager now
-exit
+sudo machinectl shell pipeline@ /bin/bash -c "openssl rand -hex 32 | tr -d '\n' | podman secret create postgres_password -"
+sudo machinectl shell pipeline@ /bin/bash -c "openssl rand -hex 32 | tr -d '\n' | podman secret create n8n_encryption_key -"
+sudo machinectl shell pipeline@ /bin/bash -c "podman secret inspect --showsecret n8n_encryption_key"     # save this in your password manager now
 ```
 Lose the encryption key and every credential saved in n8n is gone.
 
@@ -81,8 +79,7 @@ Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, and tu
 
 **Load the Whisper model (once)**
 ```bash
-sudo machinectl shell pipeline@
-podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())"
+sudo machinectl shell pipeline@ /bin/bash -c "podman exec fetcher python3 -c \"import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())\""
 ```
 The whisper image has no guarantee of curl, so this goes through the fetcher container, which shares the pod's localhost. If the route is rejected, the speaches docs give `speaches-cli model download Systran/faster-whisper-small`, which does the same thing. Routes change between versions.
 
@@ -92,7 +89,7 @@ The whisper image has no guarantee of curl, so this goes through the fetcher con
 **Claude Code login (as the agent user)**
 ```bash
 sudo machinectl shell agent@
-~/.local/bin/claude     # follow the login prompt, then exit
+~/.local/bin/claude     # follow the login prompt, then press Ctrl+D to leave the shell
 ```
 
 **Vault git history**
