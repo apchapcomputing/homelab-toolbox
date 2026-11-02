@@ -18,10 +18,13 @@
       - npm
     state: present
 
+# Read-only, so it runs in --check mode too. Otherwise the result is empty there and the
+# version test below fails with "Input version value cannot be empty".
 - name: Read the Node version
   ansible.builtin.command: node --version
   register: node_version
   changed_when: false
+  check_mode: false
 
 - name: Stop if Node is older than 22
   ansible.builtin.assert:
@@ -120,6 +123,7 @@
   register: obs_shared
   changed_when: false
   failed_when: obs_shared.rc not in [0, 1]
+  check_mode: false   # read-only; skipped in --check it would make the next task look changed
   when: obs_git.stat.exists
 
 - name: New git files are group-writable
