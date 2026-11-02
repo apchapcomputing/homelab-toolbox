@@ -1,6 +1,6 @@
 # n8n workflow: Todoist to inbox
 
-`apc-homelab/workflows/todoist-to-inbox.json` is the whole capture pipeline in n8n.
+`apc-homelab/n8n-workflows/todoist-to-inbox.json` is the whole capture pipeline in n8n.
 Import it once; credentials are created by hand in the n8n UI and never go in this repo.
 
 ## What it does
