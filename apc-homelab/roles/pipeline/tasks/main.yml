@@ -41,6 +41,7 @@
     etype: user
     permissions: rwx
     state: present
+  ignore_errors: "{{ ansible_check_mode }}"   # the inbox is not created in --check mode
 
 - name: Same for files n8n creates later (default ACL)
   ansible.posix.acl:
@@ -50,6 +51,7 @@
     permissions: rwx
     default: true
     state: present
+  ignore_errors: "{{ ansible_check_mode }}"
 
 # Outside the Quadlet directory on purpose: Quadlet should not scan the build context.
 - name: Fetcher build context
