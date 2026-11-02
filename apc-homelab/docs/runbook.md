@@ -146,7 +146,7 @@ Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, turn o
 2. **SSH.** Credentials, Add, SSH, private key. Name `brain-run on rhel10-dell`, host
    `host.containers.internal`, port 22, user `agent`. Paste the output of
    `cat n8n_to_agent` (PC). Then delete the private key file from the PC if you do not want it.
-3. **Import.** Workflows, Import from file: `apc-homelab/workflows/todoist-to-inbox.json`.
+3. **Import.** Workflows, Import from file: `apc-homelab/n8n-workflows/todoist-to-inbox.json`.
    Open each node with a warning and pick the credentials above.
 4. **Save the key backup.** Confirm the n8n encryption key is in your password manager.
 
