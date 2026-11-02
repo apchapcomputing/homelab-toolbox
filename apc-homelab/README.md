@@ -62,9 +62,10 @@ Then in the admin console, turn on MagicDNS and HTTPS certificates. Switch `inve
 
 **Podman secrets (as the pipeline user)**
 ```bash
-sudo machinectl shell pipeline@ /bin/bash -c "openssl rand -hex 32 | tr -d '\n' | podman secret create postgres_password -"
-sudo machinectl shell pipeline@ /bin/bash -c "openssl rand -hex 32 | tr -d '\n' | podman secret create n8n_encryption_key -"
-sudo machinectl shell pipeline@ /bin/bash -c "podman secret inspect --showsecret n8n_encryption_key"     # save this in your password manager now
+pl() { sudo -u pipeline -H env -C / XDG_RUNTIME_DIR=/run/user/$(id -u pipeline) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u pipeline)/bus "$@"; }
+openssl rand -hex 32 | tr -d '\n' | pl podman secret create postgres_password -
+openssl rand -hex 32 | tr -d '\n' | pl podman secret create n8n_encryption_key -
+pl podman secret inspect --showsecret n8n_encryption_key     # save this in your password manager now
 ```
 Lose the encryption key and every credential saved in n8n is gone.
 
@@ -79,7 +80,7 @@ Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, and tu
 
 **Load the Whisper model (once)**
 ```bash
-sudo machinectl shell pipeline@ /bin/bash -c "podman exec fetcher python3 -c \"import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())\""
+pl podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())"
 ```
 The whisper image has no guarantee of curl, so this goes through the fetcher container, which shares the pod's localhost. If the route is rejected, the speaches docs give `speaches-cli model download Systran/faster-whisper-small`, which does the same thing. Routes change between versions.
 
@@ -88,8 +89,7 @@ The whisper image has no guarantee of curl, so this goes through the fetcher con
 
 **Claude Code login (as the agent user)**
 ```bash
-sudo machinectl shell agent@
-~/.local/bin/claude     # follow the login prompt, then press Ctrl+D to leave the shell
+sudo -u agent -H env -C /home/agent /home/agent/.local/bin/claude     # follow the login prompt, then press Ctrl+C twice to quit
 ```
 
 **Vault git history**
@@ -112,7 +112,7 @@ A fourth container in the pod turns a URL into a raw clipping note (captions, or
 
 ## Checks after a run
 
-- `systemctl --user -M pipeline@ status postgres n8n whisper` (or use `machinectl shell`)
+- `systemctl --user -M pipeline@ status postgres n8n whisper` (or the `pl` helper in the runbook)
 - `curl -s http://127.0.0.1:5678/healthz` returns ok
 - As the pipeline user: `podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen('http://127.0.0.1:8080/healthz').read())"` prints `{"ok": true}`
 - `getenforce` says Enforcing

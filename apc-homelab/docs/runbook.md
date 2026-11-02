@@ -86,11 +86,18 @@ ls -ld /srv/inputs
 
 ## 6. Podman secrets
 
+The Dell has no `machinectl`. This one-line helper runs a command as the `pipeline` user instead. Paste it once per terminal:
+
 ```bash
 # Dell
-sudo machinectl shell pipeline@ /bin/bash -c "openssl rand -hex 32 | tr -d '\n' | podman secret create postgres_password -"
-sudo machinectl shell pipeline@ /bin/bash -c "openssl rand -hex 32 | tr -d '\n' | podman secret create n8n_encryption_key -"
-sudo machinectl shell pipeline@ /bin/bash -c "podman secret inspect --showsecret n8n_encryption_key"     # save this in your password manager NOW
+pl() { sudo -u pipeline -H env -C / XDG_RUNTIME_DIR=/run/user/$(id -u pipeline) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u pipeline)/bus "$@"; }
+```
+
+```bash
+# Dell
+openssl rand -hex 32 | tr -d '\n' | pl podman secret create postgres_password -
+openssl rand -hex 32 | tr -d '\n' | pl podman secret create n8n_encryption_key -
+pl podman secret inspect --showsecret n8n_encryption_key     # save this in your password manager NOW
 ```
 
 ## 7. Start the pipeline
@@ -106,16 +113,16 @@ The first start builds the fetcher image on the Dell. That takes a few minutes. 
 
 ```bash
 # Dell
-sudo machinectl shell pipeline@ /bin/bash -c "systemctl --user status postgres n8n whisper fetcher --no-pager | grep -E 'Active|●'"
+pl systemctl --user status postgres n8n whisper fetcher --no-pager | grep -E 'Active|●'
 curl -s http://127.0.0.1:5678/healthz
-sudo machinectl shell pipeline@ /bin/bash -c "podman exec fetcher python3 -c \"import urllib.request as u; print(u.urlopen('http://127.0.0.1:8080/healthz').read())\""
+pl podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen('http://127.0.0.1:8080/healthz').read())"
 ```
 
 ## 8. Load the Whisper model (once)
 
 ```bash
 # Dell
-sudo machinectl shell pipeline@ /bin/bash -c "podman exec fetcher python3 -c \"import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())\""
+pl podman exec fetcher python3 -c "import urllib.request as u; print(u.urlopen(u.Request('http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small', method='POST')).read())"
 ```
 
 If that route is rejected, use `speaches-cli model download Systran/faster-whisper-small`
