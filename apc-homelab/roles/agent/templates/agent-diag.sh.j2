@@ -79,7 +79,9 @@ EOF
   user-journal)
     [ $# -ge 1 ] && [ $# -le 2 ] || die "usage: user-journal <unit> [N]"
     u="$(need_unit "$1" "$USER_UNITS")"; n="$(lines "${2:-}")"
-    journalctl --no-pager -n "$n" "_UID=$(pipeline_uid)" "USER_UNIT=$u" ;;
+    # The unit's own output (podman errors) is _SYSTEMD_USER_UNIT; systemd's messages about it are USER_UNIT.
+    uid="$(pipeline_uid)"
+    journalctl --no-pager -n "$n" "_UID=$uid" "_SYSTEMD_USER_UNIT=$u" + "_UID=$uid" "USER_UNIT=$u" ;;
   containers)
     as_pipeline podman ps -a --format 'table {% raw %}{{.Names}}\t{{.Status}}\t{{.Image}}{% endraw %}' ;;
   denials)
