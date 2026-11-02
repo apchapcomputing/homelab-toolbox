@@ -8,6 +8,7 @@
 set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export LC_ALL=C SYSTEMD_PAGER= SYSTEMD_COLORS=0 PAGER=cat
+cd /   # the caller's directory may not be readable by the pipeline user (podman and runuser chdir into it)
 
 SYSTEM_UNITS=" obsidian-sync-make.service obsidian-sync-live.service brain-run.service brain-run.timer
  vault-snapshot.service vault-snapshot.timer sshd.service tailscaled.service firewalld.service
