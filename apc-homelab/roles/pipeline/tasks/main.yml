@@ -12,7 +12,7 @@
   ansible.builtin.assert:
     that: n8n_version != 'PIN_ME'
     fail_msg: Set n8n_version in group_vars/all.yml to a real release tag. Never use latest.
-  when: start_pipeline
+  when: start_pipeline | bool
 
 - name: Quadlet directory
   ansible.builtin.file:
@@ -121,7 +121,7 @@
     - n8n
     - whisper
     - fetcher
-  when: start_pipeline
+  when: start_pipeline | bool
 
 # A running fetcher keeps its old image. Rebuild when the code or the yt-dlp pin changed.
 - name: Rebuild and restart the fetcher after a change
@@ -135,4 +135,4 @@
   loop:
     - fetcher-build
     - fetcher
-  when: start_pipeline and (fetcher_source is changed or fetcher_containerfile is changed)
+  when: (start_pipeline | bool) and (fetcher_source is changed or fetcher_containerfile is changed)
