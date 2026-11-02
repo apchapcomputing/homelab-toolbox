@@ -144,7 +144,9 @@ Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, turn o
    n8n: Credentials, Add, Header Auth. Name `Todoist API token`, header `Authorization`,
    value `Bearer <token>`.
 2. **SSH.** Credentials, Add, SSH, private key. Name `brain-run on rhel10-dell`, host
-   `host.containers.internal`, port 22, user `agent`. Paste the output of
+   the Dell's Tailscale IP (`tailscale ip -4` on the Dell), port 22, user `agent`.
+   Do not use `host.containers.internal`: with Podman's pasta networking it points at
+   `169.254.1.2`, and connections to it time out ("Timed out while waiting for handshake"). Paste the output of
    `cat n8n_to_agent` (PC). Then delete the private key file from the PC if you do not want it.
 3. **Import.** Workflows, Import from file: `apc-homelab/workflows/todoist-to-inbox.json`.
    Open each node with a warning and pick the credentials above.
@@ -177,8 +179,7 @@ Todoist task open with a `failed` label. A failed summary is retried by the hour
 
 ## 13. Only after the above works
 
-- Test SSH from n8n to the agent again after setting `lan_ssh: false`. Traffic from the pod to
-  the host may arrive on an address the firewall treats as LAN, so closing LAN SSH can break
-  `brain-run`. Close it, run a note through, and reopen it if it breaks.
+- Closing LAN SSH (`lan_ssh: false`) does not affect n8n: it reaches the agent through the Dell's
+  Tailscale IP, which arrives on `tailscale0` (trusted zone). Run one note through after closing, to be sure.
 - Protect `main`, replace the account-level GitHub key on the agent with a per-repo deploy key.
 - Set `start_ob_sync: true` if the sync units are not under Ansible's control yet.
