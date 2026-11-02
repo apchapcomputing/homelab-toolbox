@@ -96,7 +96,7 @@
   ansible.builtin.dnf:
     name: dnf-automatic
     state: present
-  when: ansible_distribution != 'Fedora'
+  when: ansible_facts['distribution'] != 'Fedora'
 
 - name: Apply security updates automatically
   ansible.builtin.lineinfile:
@@ -104,15 +104,18 @@
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
     insertafter: '^\[commands\]'
+  # In --check mode the package above is not really installed, so its config file is missing.
+  ignore_errors: "{{ ansible_check_mode }}"
   loop:
     - { regexp: '^\s*upgrade_type\s*=', line: 'upgrade_type = security' }
     - { regexp: '^\s*apply_updates\s*=', line: 'apply_updates = yes' }
     - { regexp: '^\s*reboot\s*=', line: 'reboot = when-needed' }
-  when: ansible_distribution != 'Fedora'
+  when: ansible_facts['distribution'] != 'Fedora'
 
 - name: Enable the dnf-automatic timer
   ansible.builtin.systemd:
     name: dnf-automatic.timer
     enabled: true
     state: started
-  when: ansible_distribution != 'Fedora'
+  ignore_errors: "{{ ansible_check_mode }}"   # the unit only exists once the package is really installed
+  when: ansible_facts['distribution'] != 'Fedora'
