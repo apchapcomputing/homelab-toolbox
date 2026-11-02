@@ -129,4 +129,4 @@
     name: brain-run.timer
     enabled: true
     state: started
-  when: start_pipeline | default(false)
+  when: start_pipeline | default(false) | bool

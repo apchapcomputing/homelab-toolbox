@@ -44,7 +44,7 @@
     service: ssh
     permanent: true
     immediate: true
-    state: "{{ 'enabled' if lan_ssh else 'disabled' }}"
+    state: "{{ 'enabled' if lan_ssh | bool else 'disabled' }}"
 
 - name: Do not expose Cockpit on the LAN (it is reached over Tailscale)
   ansible.posix.firewalld:
