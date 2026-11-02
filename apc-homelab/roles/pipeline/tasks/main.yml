@@ -123,6 +123,23 @@
     - fetcher
   when: start_pipeline | bool
 
+# Quadlet rewrites the unit, but a running container keeps its old settings. Restart the ones that changed.
+- name: Restart containers whose Quadlet file changed
+  ansible.builtin.systemd:
+    name: "{{ item.item | regex_replace('[.]container$', '') }}.service"
+    state: restarted
+    scope: user
+  become_user: "{{ pipeline_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ pipeline_uid }}"
+  loop: "{{ quadlet_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - start_pipeline | bool
+    - item.changed
+    - item.item is match('.*[.]container$')
+
 # A running fetcher keeps its old image. Rebuild when the code or the yt-dlp pin changed.
 - name: Rebuild and restart the fetcher after a change
   ansible.builtin.systemd:
