@@ -113,6 +113,8 @@ In n8n, add an SSH credential: host `host.containers.internal`, user `agent`, au
 
 A fourth container in the pod turns a URL into a raw clipping note (captions, or yt-dlp and Whisper). n8n only calls it. See [docs/fetcher.md](docs/fetcher.md).
 
+Claude Remote Control can run as a systemd service so it survives closed terminals, crashes and reboots, and keeps a debug log. Set `start_claude_rc: true` once `claude` is logged in as the agent. See [docs/claude-remote-control.md](docs/claude-remote-control.md).
+
 ## Checks after a run
 
 - `systemctl --user -M pipeline@ status postgres n8n whisper` (or use `machinectl shell`)

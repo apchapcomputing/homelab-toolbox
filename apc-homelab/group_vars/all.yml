@@ -12,6 +12,7 @@ timezone: America/New_York
 # Run state. Flip these to true as the manual steps in the README get done.
 start_pipeline: false     # after the Podman secrets exist
 start_ob_sync: false      # after `ob login` and `ob sync-setup` as the admin user (docs/obsidian-sync.md)
+start_claude_rc: false    # after `claude` is logged in as the agent and the trust prompt is accepted in claude_rc_dir
 
 # Containers. Pin real tags before the first start.
 n8n_version: "2.43.5"
@@ -41,6 +42,9 @@ vault_git_ignore:
 inbox_dir: /srv/inputs
 claude_bin: /home/agent/.local/bin/claude
 claude_headless_settings: /etc/brain/claude-headless.json
+# Remote Control: the folder sessions start in, and the name shown in claude.ai/code.
+claude_rc_dir: /home/agent/homelab-toolbox
+claude_rc_name: "{{ host_short }}"
 
 # Vault-relative files the pipeline run may edit besides Input/Clippings/.
 # The tag guide is where Input/CLAUDE.md says new tags are recorded.

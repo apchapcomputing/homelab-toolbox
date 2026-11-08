@@ -1,0 +1,19 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Claude Code Remote Control
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ agent_user }}
+ExecStart=/usr/local/bin/claude-rc
+# Remote Control exits when the machine cannot reach the network for about 10 minutes.
+# Restart starts a fresh session instead of leaving a dead one.
+Restart=always
+RestartSec=10
+# systemd creates /var/log/claude-rc owned by the agent, so the debug log can be written.
+LogsDirectory=claude-rc
+LogsDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target
