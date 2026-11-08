@@ -9,7 +9,7 @@ set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export LC_ALL=C SYSTEMD_PAGER= SYSTEMD_COLORS=0 PAGER=cat
 
-SYSTEM_UNITS=" obsidian-sync-make.service obsidian-sync-live.service brain-run.service brain-run.timer
+SYSTEM_UNITS=" obsidian-sync-make.service obsidian-sync-live.service brain-run.service brain-run.timer claude-rc.service
  vault-snapshot.service vault-snapshot.timer sshd.service tailscaled.service firewalld.service
  dnf-automatic.timer dnf-automatic.service systemd-logind.service cockpit.socket "
 USER_UNITS=" brain-pod.service postgres.service n8n.service whisper.service fetcher.service fetcher-build.service "

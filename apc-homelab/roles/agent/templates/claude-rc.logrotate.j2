@@ -1,0 +1,9 @@
+# Managed by Ansible (apc-homelab).
+/var/log/claude-rc/*.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

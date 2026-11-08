@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Managed by Ansible (apc-homelab).
+# Starts Claude Code Remote Control as the agent user. It lives in /usr/local/bin so
+# systemd runs a normal root-owned script instead of a binary in the agent's home.
+set -euo pipefail
+
+cd "{{ claude_rc_dir }}"
+
+# --debug-file keeps a record of connection events, which Claude otherwise does not write.
+# No --permission-mode: sessions started from the phone ask before they run anything.
+exec "{{ claude_bin }}" remote-control \
+  --name "{{ claude_rc_name }}" \
+  --spawn same-dir \
+  --debug-file /var/log/claude-rc/remote-control.log
