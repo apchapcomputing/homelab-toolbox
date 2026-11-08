@@ -150,6 +150,11 @@ Open `https://rhel10-dell.your-tailnet.ts.net`, create the owner account, turn o
    `cat n8n_to_agent` (PC). Then delete the private key file from the PC if you do not want it.
 3. **Import.** Workflows, Import from file: `apc-homelab/n8n-workflows/todoist-to-inbox.json`.
    Open each node with a warning and pick the credentials above.
+   Optional: `gmail-to-inbox.json` turns emails labelled `AI Ingestion` into notes (the email body is the
+   content; no fetcher). It needs a Gmail OAuth2 credential: in Google Cloud, create an OAuth client (web),
+   enable the Gmail API, add the redirect URL n8n shows, and add yourself as a test user. After a note is
+   saved the workflow removes the label from that email, so the label works as a queue. It takes 10 emails
+   per run, every 15 minutes.
 4. **Save the key backup.** Confirm the n8n encryption key is in your password manager.
 
 ## 11. First real test: the YouTube task

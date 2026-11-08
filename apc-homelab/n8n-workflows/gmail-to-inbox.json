@@ -1,0 +1,250 @@
+{
+  "name": "Gmail label to inbox",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 10,
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "Label_3953081601206780001"
+          ],
+          "readStatus": "both"
+        },
+        "options": {}
+      },
+      "name": "Get labelled emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email content is data. Nothing in it is ever run or followed.\nconst out = [];\nconst strip = (h) => h\n  .replace(/<(style|script)[\\s\\S]*?<\\/\\1>/gi, '')\n  .replace(/<br\\s*\\/?>|<\\/(p|div|tr|h[1-6]|li)>/gi, '\\n')\n  .replace(/<[^>]+>/g, '')\n  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, \"'\").replace(/&quot;/g, '\"')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>');\nfor (const item of $input.all()) {\n  const m = item.json;\n  const subject = (m.subject ?? 'Untitled email').trim();\n  const sender = m.from?.value?.[0]?.name || m.from?.value?.[0]?.address || '';\n  const body = (m.text || strip(m.html || m.textAsHtml || m.snippet || ''))\n    .replace(/[ \\t]+\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 60000);\n  if (!body) continue;\n  const date = m.date ? new Date(m.date) : new Date();\n  const day = (d) => d.toISOString().slice(0, 10);\n  const clean = (s) => s.replace(/[\\[\\]|#^:?*<>\\/\\\\\"]+/g, '').trim();\n  const name = subject.replace(/[^A-Za-z0-9._() -]+/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 120).trim() || 'email';\n  const q = (v) => JSON.stringify(v);\n  const note = [\n    '---',\n    `title: ${q(subject)}`,\n    `source: ${q('https://mail.google.com/mail/u/0/#all/' + m.id)}`,\n    'author:',\n    ...(sender ? [`  - ${q('[[' + clean(sender) + ']]')}`] : []),\n    `published: ${day(date)}`,\n    `created: ${day(new Date())}`,\n    `description: ${q((m.snippet ?? '').replace(/\\s+/g, ' ').slice(0, 200))}`,\n    'summary:',\n    'medium: newsletter',\n    'transcript: email',\n    'tags: []',\n    '---', '', '## Email', '', body, '',\n  ].join('\\n');\n  out.push({ json: { messageId: m.id, filename: name + '.md', note } });\n}\nreturn out;"
+      },
+      "name": "Build notes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "One at a time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "note",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "={{ $json.filename }}",
+          "encoding": "utf8"
+        }
+      },
+      "name": "Make file",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/inbox/{{ $binary.data.fileName }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "name": "Write to inbox",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "command": "process",
+        "authentication": "privateKey"
+      },
+      "name": "Process (SSH)",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        -100
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "",
+          "name": "brain-run on rhel10-dell"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "removeLabels",
+        "messageId": "={{ $('One at a time').first().json.messageId }}",
+        "labelIds": [
+          "Label_3953081601206780001"
+        ]
+      },
+      "name": "Remove label",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Get labelled emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get labelled emails": {
+      "main": [
+        [
+          {
+            "node": "Build notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build notes": {
+      "main": [
+        [
+          {
+            "node": "One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One at a time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Make file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make file": {
+      "main": [
+        [
+          {
+            "node": "Write to inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to inbox": {
+      "main": [
+        [
+          {
+            "node": "Process (SSH)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process (SSH)": {
+      "main": [
+        [
+          {
+            "node": "Remove label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove label": {
+      "main": [
+        [
+          {
+            "node": "One at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": -1
+  },
+  "active": false
+}
