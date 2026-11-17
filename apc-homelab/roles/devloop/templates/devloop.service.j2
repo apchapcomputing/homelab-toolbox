@@ -1,0 +1,19 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=devloop: refine and implement GitHub Project stories with Claude Code
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User={{ devloop_user }}
+# /var/lib/devloop: repo clones, worktrees, run logs, state.json. Owned by the devloop user.
+StateDirectory=devloop
+StateDirectoryMode=0750
+# The token file stays root-only. systemd hands the service a private copy.
+LoadCredential=github-token:/etc/devloop/github-token
+Environment=PATH=/home/{{ devloop_user }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/devloop --config /etc/devloop/config.toml
+# One implement run can take up to implement_timeout_min, plus a few refines.
+TimeoutStartSec={{ devloop_timeout_sec }}
+Nice=10

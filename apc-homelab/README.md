@@ -14,7 +14,8 @@ your PC (Ansible)  --ssh-->  rhel10-dell
                               ├─ pipeline   rootless Podman + Quadlet: n8n, Postgres, Whisper, fetcher in one pod
                               ├─ obsidian   Node, the ob client, the obsidian group, one sync service per vault
                               ├─ agent      Claude Code, forced-command SSH key, daily snapshot
-                              └─ backup     weekly fast-forward push to GitHub, run as the admin user
+                              ├─ backup     weekly fast-forward push to GitHub, run as the admin user
+                              └─ devloop    every 30 min: Claude refines and implements GitHub Project stories
 ```
 
 ## Who can do what
@@ -23,6 +24,7 @@ your PC (Ansible)  --ssh-->  rhel10-dell
 |---|---|---|
 | `apc` (admin) | SSH in, sudo, runs Obsidian Sync, holds the GitHub deploy key, pushes weekly | |
 | `pipeline` | runs n8n, Postgres, Whisper; holds their secrets | sudo, SSH login, touch the vault |
+| `builder` | devloop: clones app repos, runs Claude Code and their tests, opens PRs through a bot token it never shows Claude | sudo, read the vaults, merge to `main` (repo rules) |
 | `agent` | Claude Code, writes into the `make` and `live` vaults through the `obsidian` group (pipeline runs only reach `make/Input/Clippings`), daily snapshot | sudo, see n8n secrets, see the GitHub key, use a shell or web |
 
 n8n talks to the agent through one SSH key locked to `/usr/local/bin/brain-run`, which accepts a single request (`process`). n8n writes new notes into `/srv/inputs`. `brain-run` moves them into the vault and runs Claude Code in `--restricted` mode with file tools only.
@@ -114,6 +116,8 @@ In n8n, add an SSH credential: host `host.containers.internal`, user `agent`, au
 A fourth container in the pod turns a URL into a raw clipping note (captions, or yt-dlp and Whisper). n8n only calls it. See [docs/fetcher.md](docs/fetcher.md).
 
 Claude Remote Control can run as a systemd service so it survives closed terminals, crashes and reboots, and keeps a debug log. Set `start_claude_rc: true` once `claude` is logged in as the agent. See [docs/claude-remote-control.md](docs/claude-remote-control.md).
+
+devloop checks a GitHub Project every 30 minutes and runs Claude Code on stories to refine or implement. It needs a bot token and a Claude login as `builder`, then `start_devloop: true`. See [docs/devloop.md](docs/devloop.md).
 
 ## Checks after a run
 

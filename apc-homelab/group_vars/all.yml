@@ -46,6 +46,35 @@ claude_headless_settings: /etc/brain/claude-headless.json
 claude_rc_dir: /home/agent/homelab-toolbox
 claude_rc_name: "{{ host_short }}"
 
+# devloop: every 30 minutes, refine and implement stories from a GitHub Project (docs/devloop.md).
+devloop_user: builder     # its own user: no vault access, no sudo
+devloop_claude_bin: "/home/{{ devloop_user }}/.local/bin/claude"
+start_devloop: false      # after the token file exists and `claude` is logged in as the devloop user
+devloop_project_owner: youruser
+devloop_project_number: 1
+devloop_owner_type: user  # or organization
+devloop_human_login: youruser
+devloop_trusted_authors: [youruser, youruser-bot]
+devloop_status:
+  refine: Needs refinement
+  human: Needs human
+  ready: Ready
+  working: In progress
+  review: In review
+  done: Done
+devloop_interval_min: 30
+devloop_max_refine: 3
+devloop_max_implement: 1
+devloop_implement_timeout_min: 90
+devloop_timeout_sec: 10800
+devloop_auto_merge_epic: false
+devloop_git_name: devloop
+devloop_git_email: youruser-bot@users.noreply.github.com
+devloop_extra_context: >-
+  UI and landing pages follow the ShipFast boilerplate the app was started from: reuse its
+  components and layout before adding new ones. CI and PR review follow the newsletter2paper
+  pattern: one required "Tests passed" check and a Claude review that runs when a PR opens.
+
 # Vault-relative files the pipeline run may edit besides Input/Clippings/.
 # The tag guide is where Input/CLAUDE.md says new tags are recorded.
 agent_extra_writable:

@@ -1,0 +1,42 @@
+# Managed by Ansible (apc-homelab). Edit devloop_* in group_vars/all.yml instead.
+
+project_owner = "{{ devloop_project_owner }}"
+project_number = {{ devloop_project_number }}
+owner_type = "{{ devloop_owner_type }}"
+
+# Mentioned when a story needs a decision. GitHub does not notify you about your own
+# comments, so the token should belong to a separate bot account (docs/devloop.md).
+human_login = "{{ devloop_human_login }}"
+
+# Only stories opened by these accounts are worked on, and only their comments reach Claude.
+trusted_authors = {{ devloop_trusted_authors | to_json }}
+
+status_field = "Status"
+epic_field = "Epic branch"
+
+workdir = "/var/lib/devloop"
+claude_bin = "{{ devloop_claude_bin }}"
+
+# Per 30-minute run. Subscription limits are shared with your normal Claude use.
+max_refine_per_run = {{ devloop_max_refine }}
+max_implement_per_run = {{ devloop_max_implement }}
+max_failures = 2
+refine_timeout_min = 20
+implement_timeout_min = {{ devloop_implement_timeout_min }}
+
+# Turn on only once feature/* branches require the CI check, or PRs merge before CI runs.
+auto_merge_epic = {{ devloop_auto_merge_epic | bool | lower }}
+
+git_name = {{ devloop_git_name | to_json }}
+git_email = {{ devloop_git_email | to_json }}
+
+# Added to every prompt.
+extra_context = {{ devloop_extra_context | to_json }}
+
+[status]
+refine = "{{ devloop_status.refine }}"
+human = "{{ devloop_status.human }}"
+ready = "{{ devloop_status.ready }}"
+working = "{{ devloop_status.working }}"
+review = "{{ devloop_status.review }}"
+done = "{{ devloop_status.done }}"

@@ -1,0 +1,12 @@
+# Managed by Ansible (apc-homelab).
+[Unit]
+Description=Run devloop every {{ devloop_interval_min }} minutes
+
+[Timer]
+OnBootSec=5min
+# Counted from the end of the last run, so a long implement run never overlaps the next one.
+OnUnitInactiveSec={{ devloop_interval_min }}min
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -9,6 +9,7 @@
   loop:
     - { name: "{{ pipeline_user }}", comment: "n8n, Postgres, Whisper (rootless Podman)" }
     - { name: "{{ agent_user }}", comment: "Claude Code" }
+    - { name: "{{ devloop_user }}", comment: "devloop: Claude Code on app repos" }
 
 - name: Check rootless Podman has subordinate IDs for the pipeline user
   ansible.builtin.command: grep -q "^{{ pipeline_user }}:" {{ item }}

@@ -1,0 +1,101 @@
+---
+# devloop: every 30 minutes, check a GitHub Project and run Claude Code on stories that
+# need refining or are ready to implement. Runs as its own user, with no access to the vaults.
+# Manual steps (token, Claude login, project setup) are in docs/devloop.md.
+
+- name: Build tools for app repos (git, Node, npm)
+  ansible.builtin.dnf:
+    name: [git, nodejs, npm, python3]
+    state: present
+
+- name: Claude Code cache directory for the devloop user
+  ansible.builtin.file:
+    path: "/home/{{ devloop_user }}/.cache"
+    state: directory
+    owner: "{{ devloop_user }}"
+    group: "{{ devloop_user }}"
+    mode: "0700"
+
+- name: Download the Claude Code installer
+  ansible.builtin.get_url:
+    url: https://claude.ai/install.sh
+    dest: "/home/{{ devloop_user }}/.cache/claude-install.sh"
+    owner: "{{ devloop_user }}"
+    group: "{{ devloop_user }}"
+    mode: "0700"
+
+- name: Install Claude Code for the devloop user
+  ansible.builtin.command: "bash /home/{{ devloop_user }}/.cache/claude-install.sh"
+  become_user: "{{ devloop_user }}"
+  args:
+    creates: "{{ devloop_claude_bin }}"
+
+- name: The devloop script
+  ansible.builtin.copy:
+    src: devloop.py
+    dest: /usr/local/bin/devloop
+    owner: root
+    group: root
+    mode: "0755"
+
+# Root-owned, so a Claude run (which can edit files the devloop user owns) cannot change
+# its own limits, the trusted accounts or the project it works on.
+- name: Config directory
+  ansible.builtin.file:
+    path: /etc/devloop
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: devloop config
+  ansible.builtin.template:
+    src: devloop.toml.j2
+    dest: /etc/devloop/config.toml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Service and 30-minute timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - devloop.service
+    - devloop.timer
+  register: devloop_units
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: devloop_units is changed
+
+# You create this file by hand (docs/devloop.md). systemd passes it to the service as a
+# credential; it is never in the repo or the Ansible vars.
+- name: Is the GitHub token in place?
+  ansible.builtin.stat:
+    path: /etc/devloop/github-token
+  register: devloop_token
+
+- name: Warn when the token is missing
+  ansible.builtin.debug:
+    msg: "devloop: /etc/devloop/github-token is missing, so the timer stays off. See docs/devloop.md."
+  when: not devloop_token.stat.exists
+
+- name: Run devloop every 30 minutes
+  ansible.builtin.systemd:
+    name: devloop.timer
+    enabled: true
+    state: started
+  when: start_devloop | bool and devloop_token.stat.exists
+
+- name: Stop the timer when devloop is switched off
+  ansible.builtin.systemd:
+    name: devloop.timer
+    enabled: false
+    state: stopped
+  when: not (start_devloop | bool)
+  failed_when: false

@@ -27,3 +27,10 @@
       tags: [agent]
     - role: backup
       tags: [backup]
+
+- name: devloop (Claude Code on GitHub Project stories, every 30 minutes)
+  hosts: homelab
+  become: true
+  roles:
+    - role: devloop
+      tags: [devloop]
